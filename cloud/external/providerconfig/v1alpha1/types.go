@@ -84,10 +84,15 @@ type CRUDConfig struct {
 	metav1.ObjectMeta `json:",inline"`
 
 	// Query that specifies which node(s) this config applies to
+	// Not relevant if setting as part of the machine definition
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
 	// Container that handles machine operations
 	Container *v1.Container `json:"container"`
+
+	// Optional command to be used instead of the default when
+	// handling machine Create operations (power-on/provisioning)
+	CheckCmd []string `json:"checkCmd,omitempty"`
 
 	// Optional command to be used instead of the default when
 	// handling machine Create operations (power-on/provisioning)
@@ -109,12 +114,14 @@ type CRUDConfig struct {
 	PassActionAs string `json:"passActionAs,omitempty"`
 	PassTargetAs string `json:"passTargetAs,omitempty"`
 
-	// Additional parameters that may be passed as either name/value pairs or
-	// "--name value" depending on the value of ArgumentFormat
+	// Parameters common to all commands that may be passed as either
+	// name/value pairs or "--name value" depending on the value of
+	// ArgumentFormat
 	Config map[string]string `json:"config"`
 
 	// Parameters who’s value changes depending on the affected node
-	DynamicConfig []DynamicConfigElement `json:"dynamicConfig"`
+	// Not relevant if setting as part of the machine definition
+	DynamicConfig []DynamicConfigElement `json:"dynamicConfig,omitempty"`
 
 	// A list of Kubernetes secrets to securely pass to the container
 	Secrets map[string]string `json:"secrets"`

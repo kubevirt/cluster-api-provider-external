@@ -54,7 +54,7 @@ func createCrudJob(action string, machine *clusterv1.Machine, method *providerco
 
 	container := method.Container.DeepCopy()
 
-	if err, cmd := getContainerCommand(method, action, machine.ObjectMeta.Name); err != nil {
+	if err, cmd := getContainerCommand(container, method, action, machine.ObjectMeta.Name); err != nil {
 		return fmt.Errorf("Method %s aborted: %v", action, err), nil
 	} else if len(cmd) > 0 {
 		container.Command = cmd
@@ -167,19 +167,23 @@ func processSecrets(method *providerconfigv1.CRUDConfig, c *v1.Container) []v1.V
 	return volumes
 }
 
-func getContainerCommand(m *providerconfigv1.CRUDConfig, primitive string, target string) (error, []string) {
+func getContainerCommand(c *v1.Container, m *providerconfigv1.CRUDConfig, primitive string, target string) (error, []string) {
 	command := []string{}
 
 	switch primitive {
-
 	case createEventAction:
 		command = m.CreateCmd
 	case deleteEventAction:
 		command = m.DeleteCmd
 	case rebootEventAction:
 		command = m.RebootCmd
+	case checkEventAction:
+		command = m.CheckCmd
 	default:
-		return fmt.Errorf("Unknown primitive '%s' requested for '%s'", primitive, target), []string{}
+		if c.Command == nil {
+			return fmt.Errorf("Unknown primitive '%s' requested for '%s'", primitive, target), []string{}
+		}
+		command = c.Command
 	}
 
 	if m.ArgumentFormat == "env" {

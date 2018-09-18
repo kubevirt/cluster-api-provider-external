@@ -25,6 +25,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/sirupsen/logrus"
 
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -62,6 +63,7 @@ const (
 )
 
 const (
+	checkEventAction  = "Status"
 	createEventAction = "Create"
 	deleteEventAction = "Delete"
 	rebootEventAction = "Reboot"
@@ -131,7 +133,7 @@ func (ext *ExtClient) Create(cluster *clusterv1.Cluster, machine *clusterv1.Mach
 	}
 
 	if instance == nil {
-		if err := ext.executeAction(createEventAction, cluster, machine); err != nil {
+		if _, err := ext.executeAction(createEventAction, cluster, machine, false); err != nil {
 			return ext.handleMachineError(machine, errors.CreateMachine(
 				"error creating instance: %v", err), createEventAction)
 		}
@@ -167,7 +169,7 @@ func (ext *ExtClient) Delete(cluster *clusterv1.Cluster, machine *clusterv1.Mach
 		return nil
 	}
 
-	if err := ext.executeAction(deleteEventAction, cluster, machine); err != nil {
+	if _, err := ext.executeAction(deleteEventAction, cluster, machine, true); err != nil {
 		return ext.handleMachineError(machine, errors.DeleteMachine(
 			"error deleting instance: %v", err), deleteEventAction)
 	}
@@ -260,28 +262,28 @@ func (ext *ExtClient) Exists(cluster *clusterv1.Cluster, machine *clusterv1.Mach
 	return (i != nil), err
 }
 
-func (ext *ExtClient) executeAction(command string, cluster *clusterv1.Cluster, machine *clusterv1.Machine) error {
+func (ext *ExtClient) executeAction(command string, cluster *clusterv1.Cluster, machine *clusterv1.Machine, doWait bool) (*string, error) {
 	machineConfig, err := ext.machineproviderconfig(machine.Spec.ProviderConfig)
 	zone := machineConfig.Zone
 	if err != nil {
-		return ext.handleMachineError(machine,
+		return nil, ext.handleMachineError(machine,
 			errors.InvalidMachineConfiguration("Cannot unmarshal machine's providerConfig field: %v", err), noEventAction)
 	}
 
 	clusterConfig, err := ext.providerConfigCodec.ClusterProviderFromProviderConfig(cluster.Spec.ProviderConfig)
 	if err != nil {
-		return ext.handleMachineError(machine,
+		return nil, ext.handleMachineError(machine,
 			errors.InvalidMachineConfiguration("Cannot unmarshal cluster's providerConfig field: %v", err), noEventAction)
 	}
 
 	err, primitives := ext.chooseCRUDConfig(clusterConfig, machine)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err, job := createCrudJob(command, machine, primitives)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	backoff := wait.Backoff{
@@ -291,15 +293,76 @@ func (ext *ExtClient) executeAction(command string, cluster *clusterv1.Cluster, 
 	}
 
 	err = wait.ExponentialBackoff(backoff, func() (bool, error) {
-		if _, err := ext.jobsClient.Jobs(zone).Create(job); err != nil && !apierrors.IsAlreadyExists(err) {
+		j, err := ext.jobsClient.Jobs(zone).Create(job)
+		if err != nil && !apierrors.IsAlreadyExists(err) {
 			// Retry it as errors writing to the API server are common
 			//util.JsonLogObject("Bad Job", job)
 			return false, err
 		}
+		job = j
 		return true, nil
 	})
-	return nil
+
+	if err != nil {
+		return nil, err
+	}
+
+	if doWait {
+		if err := ext.waitForJob(job.Name, job.Namespace, -1); err != nil {
+			return nil, err
+		}
+	}
+
+	return &job.Name, nil
 }
+
+func (ext *ExtClient) waitForJob(jobName string, namespace string, retries int) error {
+
+	job, err := ext.jobsClient.Jobs(namespace).Get(jobName, metav1.GetOptions{})
+
+	for lpc := 0; lpc < retries || retries < 0; lpc++ {
+		if err != nil {
+			return err
+		}
+		if len(job.Status.Conditions) > 0 {
+			for _, condition := range job.Status.Conditions {
+
+				if condition.Type == batchv1.JobComplete {
+					if job.Status.Succeeded > 0 {
+						return nil
+					} else {
+						return fmt.Errorf("Job %v failed: %v", job.Name, condition.Message)
+					}
+				}
+			}
+		}
+
+		options := metav1.GetOptions{ResourceVersion: job.ObjectMeta.ResourceVersion}
+		job, err = ext.jobsClient.Jobs(namespace).Get(job.ObjectMeta.Name, options)
+	}
+
+	return fmt.Errorf("Job %v in progress", job.Name)
+}
+
+// JobCondition describes current state of a job.
+// type JobCondition struct {
+// 	// Type of job condition, Complete or Failed.
+// 	Type JobConditionType `json:"type" protobuf:"bytes,1,opt,name=type,casttype=JobConditionType"`
+// 	// Status of the condition, one of True, False, Unknown.
+// 	Status v1.ConditionStatus `json:"status" protobuf:"bytes,2,opt,name=status,casttype=k8s.io/api/core/v1.ConditionStatus"`
+// 	// Last time the condition was checked.
+// 	// +optional
+// 	LastProbeTime metav1.Time `json:"lastProbeTime,omitempty" protobuf:"bytes,3,opt,name=lastProbeTime"`
+// 	// Last time the condition transit from one status to another.
+// 	// +optional
+// 	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" protobuf:"bytes,4,opt,name=lastTransitionTime"`
+// 	// (brief) reason for the condition's last transition.
+// 	// +optional
+// 	Reason string `json:"reason,omitempty" protobuf:"bytes,5,opt,name=reason"`
+// 	// Human readable message indicating details about last transition.
+// 	// +optional
+// 	Message string `json:"message,omitempty" protobuf:"bytes,6,opt,name=message"`
+// }
 
 func (ext *ExtClient) chooseCRUDConfig(clusterConfig *providerconfigv1.ExtClusterProviderConfig, machine *clusterv1.Machine) (error, *providerconfigv1.CRUDConfig) {
 	labelThreshold := -1
@@ -308,6 +371,8 @@ func (ext *ExtClient) chooseCRUDConfig(clusterConfig *providerconfigv1.ExtCluste
 		return err, nil
 	}
 
+	// Prefer primitives defined as part of the Machine object over those
+	// defined in the the Cluster
 	chosen := machineConfig.CRUDPrimitives
 
 	if chosen == nil {
@@ -394,25 +459,20 @@ func (ext *ExtClient) instanceIfExists(cluster *clusterv1.Cluster, machine *clus
 	}
 
 	// Get the VM via specified location and name
-	// machineConfig, err := ext.machineproviderconfig(identifyingMachine.Spec.ProviderConfig)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	if _, err := ext.machineproviderconfig(identifyingMachine.Spec.ProviderConfig); err != nil {
+		return nil, err
+	}
 
 	// clusterConfig, err := ext.providerConfigCodec.ClusterProviderFromProviderConfig(cluster.Spec.ProviderConfig)
 	// if err != nil {
 	// 	return nil, err
 	// }
 
-	// TODO: Implement something here
-
-	instance := Instance{Name: identifyingMachine.ObjectMeta.Name}
-	// instance, err := ext.computeService.InstancesGet(clusterConfig.Project, machineConfig.Zone, identifyingMachine.ObjectMeta.Name)
-	if err != nil {
-		return nil, err
+	if _, err := ext.executeAction(checkEventAction, cluster, machine, true); err != nil {
+		return nil, nil
 	}
 
-	return &instance, nil
+	return &Instance{Name: identifyingMachine.ObjectMeta.Name}, nil
 }
 
 func (ext *ExtClient) ListNodes(selector map[string]string) (error, []corev1.Node) {
