@@ -14,7 +14,10 @@
 
 .PHONY: gendeepcopy
 
-all: generate build images
+build:
+	CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' github.com/kubevirt/cluster-api-provider-external/cmd/external-controller
+
+all: generate install images
 
 .PHONY: depend
 depend:
@@ -34,14 +37,15 @@ depend-update: work
 generate: gendeepcopy
 
 gendeepcopy:
-	go build -o $$GOPATH/bin/deepcopy-gen sigs.k8s.io/cluster-api-provider-gcp/vendor/k8s.io/code-generator/cmd/deepcopy-gen
+	go build -o $$GOPATH/bin/deepcopy-gen github.com/kubevirt/cluster-api-provider-external/vendor/k8s.io/code-generator/cmd/deepcopy-gen
 	deepcopy-gen \
-	  -i ./cloud/google/gceproviderconfig,./cloud/google/gceproviderconfig/v1alpha1 \
+	  -i ./cloud/external/providerconfig/v1alpha1 \
 	  -O zz_generated.deepcopy \
 	  -h boilerplate.go.txt
+	 #--logtostderr -v 9
 
-build: depend
-	CGO_ENABLED=0 go install -a -ldflags '-extldflags "-static"' sigs.k8s.io/cluster-api-provider-gcp/cmd/external-controller
+install: depend
+	CGO_ENABLED=0 go install -a -ldflags '-extldflags "-static"' github.com/kubevirt/cluster-api-provider-external/cmd/external-controller
 
 images: depend
 	$(MAKE) -C cmd/external-controller image

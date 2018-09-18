@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package google
+package external
 
 import (
 	"fmt"
@@ -36,7 +36,7 @@ type ClusterActuatorParams struct {
 }
 
 func NewClusterActuator(params ClusterActuatorParams) (*ExtClusterClient, error) {
-	codec, err := provicderconfigv1.NewCodec()
+	codec, err := providerconfigv1.NewCodec()
 	if err != nil {
 		return nil, err
 	}
@@ -47,12 +47,28 @@ func NewClusterActuator(params ClusterActuatorParams) (*ExtClusterClient, error)
 	}, nil
 }
 
-func (gce *ExtClusterClient) Reconcile(cluster *clusterv1.Cluster) error {
+func (ext *ExtClusterClient) Reconcile(cluster *clusterv1.Cluster) error {
 	glog.Infof("Reconciling cluster %v.", cluster.Name)
+	clusterConfig, err := ext.clusterproviderconfig(cluster.Spec.ProviderConfig)
+	if err != nil {
+		return fmt.Errorf("No config found for %v: %v", cluster.Name, err)
+	}
+	if clusterConfig == nil {
+		return fmt.Errorf("No config found for %v", cluster.Name)
+	}
 	return nil
 }
 
-func (gce *ExtClusterClient) Delete(cluster *clusterv1.Cluster) error {
+func (ext *ExtClusterClient) Delete(cluster *clusterv1.Cluster) error {
 	glog.Infof("Deleting cluster %v.", cluster.Name)
 	return nil
+}
+
+func (ext *ExtClusterClient) clusterproviderconfig(providerConfig clusterv1.ProviderConfig) (*providerconfigv1.ExtClusterProviderConfig, error) {
+	var config providerconfigv1.ExtClusterProviderConfig
+	err := ext.providerConfigCodec.DecodeFromProviderConfig(providerConfig, &config)
+	if err != nil {
+		return nil, err
+	}
+	return &config, nil
 }

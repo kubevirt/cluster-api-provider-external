@@ -24,8 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	clusterv1 "sigs.k8s.io/cluster-api/pkg/apis/cluster/v1alpha1"
-
-	"github.com/kubevirt/cluster-api-provider-external/cloud/external/providerconfig"
 )
 
 // +k8s:deepcopy-gen=false
@@ -63,9 +61,9 @@ func NewScheme() (*runtime.Scheme, error) {
 	if err := AddToScheme(scheme); err != nil {
 		return nil, err
 	}
-	if err := providerconfig.AddToScheme(scheme); err != nil {
-		return nil, err
-	}
+	// if err := providerconfig.AddToScheme(scheme); err != nil {
+	// 	return nil, err
+	// }
 	return scheme, nil
 }
 

@@ -21,12 +21,13 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/kubevirt/cluster-api-provider-external/cmd/external-controller/cluster-controller-app"
+	clusteroptions "github.com/kubevirt/cluster-api-provider-external/cmd/external-controller/cluster-controller-app/options"
+	"github.com/kubevirt/cluster-api-provider-external/cmd/external-controller/machine-controller-app"
+	machineoptions "github.com/kubevirt/cluster-api-provider-external/cmd/external-controller/machine-controller-app/options"
+
 	"github.com/spf13/pflag"
 	"k8s.io/apiserver/pkg/util/logs"
-	"sigs.k8s.io/cluster-api-provider-external/cmd/external-controller/cluster-controller-app"
-	clusteroptions "sigs.k8s.io/cluster-api-provider-external/cmd/external-controller/cluster-controller-app/options"
-	"sigs.k8s.io/cluster-api-provider-external/cmd/external-controller/machine-controller-app"
-	machineoptions "sigs.k8s.io/cluster-api-provider-external/cmd/external-controller/machine-controller-app/options"
 	"sigs.k8s.io/cluster-api/pkg/controller/config"
 )
 

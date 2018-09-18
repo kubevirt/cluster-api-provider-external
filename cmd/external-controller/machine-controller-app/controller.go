@@ -32,7 +32,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 
-	"sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset"
+	clusterclient "sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset"
 	clusterapiclientsetscheme "sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset/scheme"
 	"sigs.k8s.io/cluster-api/pkg/controller/config"
 	"sigs.k8s.io/cluster-api/pkg/controller/machine"
@@ -47,13 +47,13 @@ const (
 	machineControllerName = "ext-machine-controller"
 )
 
-func StartMachineController(server *options.MachineControllerServer, recorder record.EventRecorder, shutdown <-chan struct{}) {
+func StartMachineController(kClient *kubernetes.Clientset, server *options.MachineControllerServer, recorder record.EventRecorder, shutdown <-chan struct{}) {
 	config, err := controller.GetConfig(server.CommonConfig.Kubeconfig)
 	if err != nil {
 		glog.Fatalf("Could not create Config for talking to the apiserver: %v", err)
 	}
 
-	client, err := clientset.NewForConfig(config)
+	client, err := clusterclient.NewForConfig(config)
 	if err != nil {
 		glog.Fatalf("Could not create client for talking to the apiserver: %v", err)
 	}
@@ -64,6 +64,7 @@ func StartMachineController(server *options.MachineControllerServer, recorder re
 	}
 	params := external.MachineActuatorParams{
 		V1Alpha1Client:           client.ClusterV1alpha1(),
+		ClientSet:                kClient,
 		MachineSetupConfigGetter: configWatch,
 		EventRecorder:            recorder,
 	}
@@ -105,7 +106,7 @@ func RunMachineController(server *options.MachineControllerServer) error {
 
 	// run function will block and never return.
 	run := func(stop <-chan struct{}) {
-		StartMachineController(server, recorder, stop)
+		StartMachineController(clientSet, server, recorder, stop)
 	}
 
 	leaderElectConfig := config.GetLeaderElectionConfig()

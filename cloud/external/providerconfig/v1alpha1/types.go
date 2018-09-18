@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -31,8 +32,9 @@ type ExtMachineProviderConfig struct {
 	MachineType string `json:"machineType"`
 
 	// The name of the OS to be installed on the machine.
-	OS    string `json:"os"`
-	Disks []Disk `json:"disks"`
+	OS             string      `json:"os"`
+	Disks          []Disk      `json:"disks"`
+	CRUDPrimitives *CRUDConfig `json:"crudPrimitives"`
 }
 
 // The MachineRole indicates the purpose of the Machine, and will determine
@@ -74,5 +76,70 @@ type DiskInitializeParams struct {
 type ExtClusterProviderConfig struct {
 	metav1.TypeMeta `json:",inline"`
 
-	Project string `json:"project"`
+	Project        string       `json:"project"`
+	CRUDPrimitives []CRUDConfig `json:"crudPrimitives"`
+}
+
+type CRUDConfig struct {
+	metav1.ObjectMeta `json:",inline"`
+
+	// Query that specifies which node(s) this config applies to
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// Container that handles machine operations
+	Container *v1.Container `json:"container"`
+
+	// Optional command to be used instead of the default when
+	// handling machine Create operations (power-on/provisioning)
+	CreateCmd []string `json:"createCmd,omitempty"`
+
+	// Optional command to be used instead of the default when
+	// handling machine Delete operations (power-off/deprovisioning)
+	DeleteCmd []string `json:"deleteCmd,omitempty"`
+
+	// Optional command to be used instead of the default when
+	// handling machine Reboot operations
+	RebootCmd []string `json:"rebootCmd,omitempty"`
+
+	// How Secrets and DynamicConfig should be passed to the
+	// container: ([env], cli)
+	ArgumentFormat string `json:"argumentFormat"`
+
+	// Parameters to use for automatic variables
+	PassActionAs string `json:"passActionAs,omitempty"`
+	PassTargetAs string `json:"passTargetAs,omitempty"`
+
+	// Additional parameters that may be passed as either name/value pairs or
+	// "--name value" depending on the value of ArgumentFormat
+	Config map[string]string `json:"config"`
+
+	// Parameters who’s value changes depending on the affected node
+	DynamicConfig []DynamicConfigElement `json:"dynamicConfig"`
+
+	// A list of Kubernetes secrets to securely pass to the container
+	Secrets map[string]string `json:"secrets"`
+
+	// How long to wait for the Job to complete
+	TimeoutSeconds *int32 `json:"timeoutSeconds,omitempty"`
+
+	// How long to wait before retrying failed Jobs
+	RetrySeconds *int32 `json:"retrySeconds,omitempty"`
+
+	// How long to wait before retrying failed Jobs
+	Retries *int32 `json:"retries,omitempty"`
+}
+
+type DynamicConfigElement struct {
+	Field   string            `json:"field"`
+	Default string            `json:"default"`
+	Values  map[string]string `json:"values"`
+}
+
+func (dc *DynamicConfigElement) Lookup(key string) (string, bool) {
+	if val, ok := dc.Values[key]; ok {
+		return val, true
+	} else if len(dc.Default) > 0 {
+		return dc.Default, true
+	}
+	return "", false
 }

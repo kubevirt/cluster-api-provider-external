@@ -14,31 +14,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package google
+package external
 
 import (
-	"encoding/base64"
-	"errors"
+	//	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"os"
 	"reflect"
-	"regexp"
-	"strings"
 	"time"
 
 	"github.com/golang/glog"
-	"golang.org/x/net/context"
-	"golang.org/x/oauth2/google"
-	compute "google.golang.org/api/compute/v1"
-	"google.golang.org/api/googleapi"
+	"github.com/sirupsen/logrus"
 
 	corev1 "k8s.io/api/core/v1"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	"k8s.io/client-go/kubernetes"
+	batchv1client "k8s.io/client-go/kubernetes/typed/batch/v1"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 
 	"github.com/kubevirt/cluster-api-provider-external/cloud/external/machinesetup"
@@ -47,13 +44,16 @@ import (
 	clustercommon "sigs.k8s.io/cluster-api/pkg/apis/cluster/common"
 	clusterv1 "sigs.k8s.io/cluster-api/pkg/apis/cluster/v1alpha1"
 	client "sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset/typed/cluster/v1alpha1"
-	apierrors "sigs.k8s.io/cluster-api/pkg/errors"
-	"sigs.k8s.io/cluster-api/pkg/kubeadm"
-	"sigs.k8s.io/cluster-api/pkg/util"
+	"sigs.k8s.io/cluster-api/pkg/errors"
+	//	"sigs.k8s.io/cluster-api/pkg/util"
 )
 
 const (
 	BootstrapLabelKey = "bootstrap"
+
+	ProjectAnnotationKey = "ext-project"
+	ZoneAnnotationKey    = "ext-zone"
+	NameAnnotationKey    = "ext-name"
 
 	// This file is a yaml that will be used to create the machine-setup configmap on the machine controller.
 	// It contains the supported machine configurations along with the startup scripts and OS image paths that correspond to each supported configuration.
@@ -64,6 +64,7 @@ const (
 const (
 	createEventAction = "Create"
 	deleteEventAction = "Delete"
+	rebootEventAction = "Reboot"
 	noEventAction     = ""
 )
 
@@ -79,16 +80,24 @@ type ExtClientMachineSetupConfigGetter interface {
 	GetMachineSetupConfig() (machinesetup.MachineSetupConfig, error)
 }
 
+type Instance struct {
+	Name   string
+	Labels map[string]string
+}
+
 type ExtClient struct {
-	providerConfigCodec      *providerconfigv1.ProviderConfigCodec
+	providerConfigCodec      *providerconfigv1.ExtProviderConfigCodec
 	scheme                   *runtime.Scheme
 	v1Alpha1Client           client.ClusterV1alpha1Interface
+	jobsClient               batchv1client.BatchV1Interface
+	coreClient               corev1client.CoreV1Interface
 	machineSetupConfigGetter ExtClientMachineSetupConfigGetter
 	eventRecorder            record.EventRecorder
 }
 
 type MachineActuatorParams struct {
 	V1Alpha1Client           client.ClusterV1alpha1Interface
+	ClientSet                *kubernetes.Clientset
 	MachineSetupConfigGetter ExtClientMachineSetupConfigGetter
 	EventRecorder            record.EventRecorder
 }
@@ -107,6 +116,8 @@ func NewMachineActuator(params MachineActuatorParams) (*ExtClient, error) {
 	return &ExtClient{
 		providerConfigCodec:      codec,
 		scheme:                   scheme,
+		jobsClient:               params.ClientSet.BatchV1(),
+		coreClient:               params.ClientSet.CoreV1(),
 		v1Alpha1Client:           params.V1Alpha1Client,
 		machineSetupConfigGetter: params.MachineSetupConfigGetter,
 		eventRecorder:            params.EventRecorder,
@@ -114,21 +125,18 @@ func NewMachineActuator(params MachineActuatorParams) (*ExtClient, error) {
 }
 
 func (ext *ExtClient) Create(cluster *clusterv1.Cluster, machine *clusterv1.Machine) error {
-	name := machine.ObjectMeta.Name
-
 	instance, err := ext.instanceIfExists(cluster, machine)
 	if err != nil {
 		return err
 	}
 
 	if instance == nil {
-
-		if err != nil {
-			return ext.handleMachineError(machine, apierrors.CreateMachine(
+		if err := ext.executeAction(createEventAction, cluster, machine); err != nil {
+			return ext.handleMachineError(machine, errors.CreateMachine(
 				"error creating instance: %v", err), createEventAction)
 		}
 
-		ext.eventRecorder.Eventf(machine, corev1.EventTypeNormal, "Created", "Created Machine %v", machine.Name)
+		ext.eventRecorder.Eventf(machine, corev1.EventTypeNormal, "Created", "Created Machine %v", machine.ObjectMeta.Name)
 		// If we have a v1Alpha1Client, then annotate the machine so that we
 		// remember exactly what VM we created for it.
 		if ext.v1Alpha1Client != nil {
@@ -159,8 +167,8 @@ func (ext *ExtClient) Delete(cluster *clusterv1.Cluster, machine *clusterv1.Mach
 		return nil
 	}
 
-	if err != nil {
-		return ext.handleMachineError(machine, apierrors.DeleteMachine(
+	if err := ext.executeAction(deleteEventAction, cluster, machine); err != nil {
+		return ext.handleMachineError(machine, errors.DeleteMachine(
 			"error deleting instance: %v", err), deleteEventAction)
 	}
 
@@ -184,7 +192,7 @@ func (ext *ExtClient) Update(cluster *clusterv1.Cluster, goalMachine *clusterv1.
 	goalConfig, err := ext.machineproviderconfig(goalMachine.Spec.ProviderConfig)
 	if err != nil {
 		return ext.handleMachineError(goalMachine,
-			apierrors.InvalidMachineConfiguration("Cannot unmarshal machine's providerConfig field: %v", err), noEventAction)
+			errors.InvalidMachineConfiguration("Cannot unmarshal machine's providerConfig field: %v", err), noEventAction)
 	}
 	if verr := ext.validateMachine(goalMachine, goalConfig); verr != nil {
 		return ext.handleMachineError(goalMachine, verr, noEventAction)
@@ -211,7 +219,7 @@ func (ext *ExtClient) Update(cluster *clusterv1.Cluster, goalMachine *clusterv1.
 
 	currentConfig, err := ext.machineproviderconfig(currentMachine.Spec.ProviderConfig)
 	if err != nil {
-		return ext.handleMachineError(currentMachine, apierrors.InvalidMachineConfiguration(
+		return ext.handleMachineError(currentMachine, errors.InvalidMachineConfiguration(
 			"Cannot unmarshal machine's providerConfig field: %v", err), noEventAction)
 	}
 
@@ -227,11 +235,11 @@ func (ext *ExtClient) Update(cluster *clusterv1.Cluster, goalMachine *clusterv1.
 		// }
 	} else {
 		glog.Infof("re-creating machine %s for update.", currentMachine.ObjectMeta.Name)
-		err = gce.Delete(cluster, currentMachine)
+		err = ext.Delete(cluster, currentMachine)
 		if err != nil {
 			glog.Errorf("delete machine %s for update failed: %v", currentMachine.ObjectMeta.Name, err)
 		} else {
-			err = gce.Create(cluster, goalMachine)
+			err = ext.Create(cluster, goalMachine)
 			if err != nil {
 				glog.Errorf("create machine %s for update failed: %v", goalMachine.ObjectMeta.Name, err)
 			}
@@ -252,6 +260,76 @@ func (ext *ExtClient) Exists(cluster *clusterv1.Cluster, machine *clusterv1.Mach
 	return (i != nil), err
 }
 
+func (ext *ExtClient) executeAction(command string, cluster *clusterv1.Cluster, machine *clusterv1.Machine) error {
+	machineConfig, err := ext.machineproviderconfig(machine.Spec.ProviderConfig)
+	zone := machineConfig.Zone
+	if err != nil {
+		return ext.handleMachineError(machine,
+			errors.InvalidMachineConfiguration("Cannot unmarshal machine's providerConfig field: %v", err), noEventAction)
+	}
+
+	clusterConfig, err := ext.providerConfigCodec.ClusterProviderFromProviderConfig(cluster.Spec.ProviderConfig)
+	if err != nil {
+		return ext.handleMachineError(machine,
+			errors.InvalidMachineConfiguration("Cannot unmarshal cluster's providerConfig field: %v", err), noEventAction)
+	}
+
+	err, primitives := ext.chooseCRUDConfig(clusterConfig, machine)
+	if err != nil {
+		return err
+	}
+
+	err, job := createCrudJob(command, machine, primitives)
+	if err != nil {
+		return err
+	}
+
+	backoff := wait.Backoff{
+		Duration: 1 * time.Second,
+		Factor:   1.2,
+		Steps:    5,
+	}
+
+	err = wait.ExponentialBackoff(backoff, func() (bool, error) {
+		if _, err := ext.jobsClient.Jobs(zone).Create(job); err != nil && !apierrors.IsAlreadyExists(err) {
+			// Retry it as errors writing to the API server are common
+			//util.JsonLogObject("Bad Job", job)
+			return false, err
+		}
+		return true, nil
+	})
+	return nil
+}
+
+func (ext *ExtClient) chooseCRUDConfig(clusterConfig *providerconfigv1.ExtClusterProviderConfig, machine *clusterv1.Machine) (error, *providerconfigv1.CRUDConfig) {
+	labelThreshold := -1
+	machineConfig, err := ext.machineproviderconfig(machine.Spec.ProviderConfig)
+	if err != nil {
+		return err, nil
+	}
+
+	chosen := machineConfig.CRUDPrimitives
+
+	if chosen == nil {
+		for _, cfg := range clusterConfig.CRUDPrimitives {
+			if len(cfg.NodeSelector) > labelThreshold {
+				err, nodes := ext.ListNodes(cfg.NodeSelector)
+				if err == nil && nodeInList(machine.ObjectMeta.Name, nodes) {
+					chosen = &cfg
+					labelThreshold = len(cfg.NodeSelector)
+				}
+			}
+		}
+	}
+
+	if chosen != nil {
+		logrus.Infof("Chose %v for %v primitives", chosen.ObjectMeta.Name, machine.ObjectMeta.Name)
+		return nil, chosen
+	}
+
+	return fmt.Errorf("No valid config for %v", machine.ObjectMeta.Name), nil
+}
+
 func isMaster(roles []providerconfigv1.MachineRole) bool {
 	for _, r := range roles {
 		if r == providerconfigv1.MasterRole {
@@ -267,14 +345,14 @@ func (ext *ExtClient) updateAnnotations(cluster *clusterv1.Cluster, machine *clu
 	zone := machineConfig.Zone
 	if err != nil {
 		return ext.handleMachineError(machine,
-			apierrors.InvalidMachineConfiguration("Cannot unmarshal machine's providerConfig field: %v", err), noEventAction)
+			errors.InvalidMachineConfiguration("Cannot unmarshal machine's providerConfig field: %v", err), noEventAction)
 	}
 
 	clusterConfig, err := ext.providerConfigCodec.ClusterProviderFromProviderConfig(cluster.Spec.ProviderConfig)
 	project := clusterConfig.Project
 	if err != nil {
 		return ext.handleMachineError(machine,
-			apierrors.InvalidMachineConfiguration("Cannot unmarshal cluster's providerConfig field: %v", err), noEventAction)
+			errors.InvalidMachineConfiguration("Cannot unmarshal cluster's providerConfig field: %v", err), noEventAction)
 	}
 
 	if machine.ObjectMeta.Annotations == nil {
@@ -301,7 +379,7 @@ func (ext *ExtClient) requiresUpdate(a *clusterv1.Machine, b *clusterv1.Machine)
 }
 
 // Gets the instance represented by the given machine
-func (ext *ExtClient) instanceIfExists(cluster *clusterv1.Cluster, machine *clusterv1.Machine) (*compute.Instance, error) {
+func (ext *ExtClient) instanceIfExists(cluster *clusterv1.Cluster, machine *clusterv1.Machine) (*Instance, error) {
 	identifyingMachine := machine
 
 	// Try to use the last saved status locating the machine
@@ -316,26 +394,44 @@ func (ext *ExtClient) instanceIfExists(cluster *clusterv1.Cluster, machine *clus
 	}
 
 	// Get the VM via specified location and name
-	machineConfig, err := ext.machineproviderconfig(identifyingMachine.Spec.ProviderConfig)
-	if err != nil {
-		return nil, err
-	}
+	// machineConfig, err := ext.machineproviderconfig(identifyingMachine.Spec.ProviderConfig)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	clusterConfig, err := ext.providerConfigCodec.ClusterProviderFromProviderConfig(cluster.Spec.ProviderConfig)
-	if err != nil {
-		return nil, err
-	}
+	// clusterConfig, err := ext.providerConfigCodec.ClusterProviderFromProviderConfig(cluster.Spec.ProviderConfig)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
+	// TODO: Implement something here
+
+	instance := Instance{Name: identifyingMachine.ObjectMeta.Name}
 	// instance, err := ext.computeService.InstancesGet(clusterConfig.Project, machineConfig.Zone, identifyingMachine.ObjectMeta.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	return instance, nil
+	return &instance, nil
 }
 
-func (ext *ExtClient) machineproviderconfig(providerConfig clusterv1.ProviderConfig) (*providerconfigv1.GCEMachineProviderConfig, error) {
-	var config providerconfigv1.GCEMachineProviderConfig
+func (ext *ExtClient) ListNodes(selector map[string]string) (error, []corev1.Node) {
+
+	labelSelector := labels.SelectorFromSet(selector).String()
+	listOptions := metav1.ListOptions{
+		LabelSelector:        labelSelector,
+		IncludeUninitialized: false,
+		// 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty" protobuf:"varint,5,opt,name=timeoutSeconds"`
+		// 	Limit int64 `json:"limit,omitempty" protobuf:"varint,7,opt,name=limit"`
+	}
+
+	nodes, err := ext.coreClient.Nodes().List(listOptions)
+
+	return err, nodes.Items
+}
+
+func (ext *ExtClient) machineproviderconfig(providerConfig clusterv1.ProviderConfig) (*providerconfigv1.ExtMachineProviderConfig, error) {
+	var config providerconfigv1.ExtMachineProviderConfig
 	err := ext.providerConfigCodec.DecodeFromProviderConfig(providerConfig, &config)
 	if err != nil {
 		return nil, err
@@ -343,9 +439,9 @@ func (ext *ExtClient) machineproviderconfig(providerConfig clusterv1.ProviderCon
 	return &config, nil
 }
 
-func (ext *ExtClient) validateMachine(machine *clusterv1.Machine, config *providerconfigv1.GCEMachineProviderConfig) *apierrors.MachineError {
+func (ext *ExtClient) validateMachine(machine *clusterv1.Machine, config *providerconfigv1.ExtMachineProviderConfig) *errors.MachineError {
 	// if machine.Spec.Versions.Kubelet == "" {
-	// 	return apierrors.InvalidMachineConfiguration("spec.versions.kubelet can't be empty")
+	// 	return errors.InvalidMachineConfiguration("spec.versions.kubelet can't be empty")
 	// }
 	return nil
 }
@@ -354,7 +450,7 @@ func (ext *ExtClient) validateMachine(machine *clusterv1.Machine, config *provid
 // the appropriate reason/message on the Machine.Status. If not, such as during
 // cluster installation, it will operate as a no-op. It also returns the
 // original error for convenience, so callers can do "return handleMachineError(...)".
-func (ext *ExtClient) handleMachineError(machine *clusterv1.Machine, err *apierrors.MachineError, eventAction string) error {
+func (ext *ExtClient) handleMachineError(machine *clusterv1.Machine, err *errors.MachineError, eventAction string) error {
 	if ext.v1Alpha1Client != nil {
 		reason := err.Reason
 		message := err.Message
