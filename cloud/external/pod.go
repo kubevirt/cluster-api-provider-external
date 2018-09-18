@@ -50,7 +50,7 @@ func createCrudJob(action string, machine *clusterv1.Machine, method *providerco
 	volumeMap := map[string]v1.Volume{}
 	containers := []v1.Container{}
 
-	labels := map[string]string{"foo": "bar"} //req.JobLabels(method.Name)
+	labels := map[string]string{"foo": "bar"} // TODO: req.JobLabels(method.Name)
 
 	container := method.Container.DeepCopy()
 
@@ -95,8 +95,8 @@ func createCrudJob(action string, machine *clusterv1.Machine, method *providerco
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%v-%v-job-", machine.ObjectMeta.Name, action),
-			// Namespace:    req.Namespace,
-			// OwnerReferences: []metav1.OwnerReference{
+			Namespace:    machine.Namespace,
+			// TODO: OwnerReferences: []metav1.OwnerReference{
 			// 	*metav1.NewControllerRef(req, schema.GroupVersionKind{
 			// 		Group:   providerconfigv1.SchemeGroupVersion.Group,
 			// 		Version: providerconfigv1.SchemeGroupVersion.Version,
