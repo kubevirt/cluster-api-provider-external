@@ -60,7 +60,7 @@ func createCrudJob(action string, machine *clusterv1.Machine, method *providerco
 		container.Command = cmd
 	}
 
-	if err, env := getContainerEnv(method, machine.ObjectMeta.Name, secretsDir); err != nil {
+	if err, env := getContainerEnv(method, action, machine.ObjectMeta.Name, secretsDir); err != nil {
 		return fmt.Errorf("Method %s aborted: %v", action, err), nil
 	} else {
 		container.Env = env
@@ -208,6 +208,12 @@ func getContainerCommand(c *v1.Container, m *providerconfigv1.CRUDConfig, primit
 			}
 		}
 
+		if len(m.PassActionAs) > 0 {
+			command = append(command, fmt.Sprintf("--%s", m.PassActionAs))
+		}
+
+		command = append(command, primitive)
+
 		if len(m.PassTargetAs) > 0 {
 			command = append(command, fmt.Sprintf("--%s", m.PassTargetAs))
 		}
@@ -222,7 +228,7 @@ func getContainerCommand(c *v1.Container, m *providerconfigv1.CRUDConfig, primit
 	return nil, command
 }
 
-func getContainerEnv(m *providerconfigv1.CRUDConfig, target string, secretsDir string) (error, []v1.EnvVar) {
+func getContainerEnv(m *providerconfigv1.CRUDConfig, primitive string, target string, secretsDir string) (error, []v1.EnvVar) {
 	env := []v1.EnvVar{
 		{
 			Name:  "ARG_FORMAT",
@@ -266,6 +272,13 @@ func getContainerEnv(m *providerconfigv1.CRUDConfig, target string, secretsDir s
 			env = append(env, v1.EnvVar{
 				Name:  m.PassTargetAs,
 				Value: target,
+			})
+		}
+
+		if len(m.PassActionAs) > 0 {
+			env = append(env, v1.EnvVar{
+				Name:  m.PassActionAs,
+				Value: primitive,
 			})
 		}
 
