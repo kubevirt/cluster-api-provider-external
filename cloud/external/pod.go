@@ -94,7 +94,7 @@ func createCrudJob(action string, machine *clusterv1.Machine, method *providerco
 			APIVersion: "batch/v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("%v-%v-job-", machine.ObjectMeta.Name, action),
+			GenerateName: fmt.Sprintf("%v-%v-job-", machine.ObjectMeta.Name, strings.ToLower(action)),
 			Namespace:    machine.Namespace,
 			// TODO: OwnerReferences: []metav1.OwnerReference{
 			// 	*metav1.NewControllerRef(req, schema.GroupVersionKind{
@@ -224,7 +224,7 @@ func getContainerCommand(c *v1.Container, m *providerconfigv1.CRUDConfig, primit
 		return fmt.Errorf("ArgumentFormat %s not supported", m.ArgumentFormat), []string{}
 	}
 
-	logrus.Infof("%s command: %v", m.Container.Name, m.Container.Command)
+	logrus.Infof("%s %v command: %v", m.Container.Name, primitive, command)
 	return nil, command
 }
 
