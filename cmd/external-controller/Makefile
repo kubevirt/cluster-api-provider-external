@@ -14,18 +14,18 @@
 
 .PHONY: image push dev_image dev_push fix_gcs_permissions
 
-GCR_BUCKET = k8s-cluster-api
-PREFIX = gcr.io/$(GCR_BUCKET)
-DEV_PREFIX ?= gcr.io/$(shell gcloud config get-value project)
+GCR_BUCKET = beekhof
+PREFIX = quay.io/$(GCR_BUCKET)
+DEV_PREFIX ?= quay.io/beekhof
 NAME = external-controller
-TAG = 0.0.16
+TAG = 0.0.1
 
 image:
 	docker build -t "$(PREFIX)/$(NAME):$(TAG)" -f ./Dockerfile ../..
 
 push: image
 	docker push "$(PREFIX)/$(NAME):$(TAG)"
-	$(MAKE) fix_gcs_permissions
+	#$(MAKE) fix_gcs_permissions
 
 fix_gcs_permissions:
 	gsutil acl ch -u AllUsers:READ gs://artifacts.$(GCR_BUCKET).appspot.com
