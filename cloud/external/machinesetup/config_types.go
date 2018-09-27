@@ -31,6 +31,8 @@ import (
 	clusterv1 "sigs.k8s.io/cluster-api/pkg/apis/cluster/v1alpha1"
 )
 
+// These store config common to multiple Machines
+// Possibly the CRUD primitives could live here instead
 type MachineSetupConfig interface {
 	GetYaml() (string, error)
 	GetImage(params *ConfigParams) (string, error)
@@ -67,6 +69,7 @@ type config struct {
 
 type Metadata struct {
 	StartupScript string `json:"startupScript"`
+	// TODO: Move here? CRUDPrimitives *CRUDConfig `json:"crudPrimitives"`
 }
 
 type ConfigParams struct {
