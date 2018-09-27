@@ -47,11 +47,13 @@ gendeepcopy:
 install: depend
 	CGO_ENABLED=0 go install -a -ldflags '-extldflags "-static"' github.com/kubevirt/cluster-api-provider-external/cmd/external-controller
 
-images: depend
+images:
 	$(MAKE) -C cmd/external-controller image
+	$(MAKE) -C examples/agents image
 
-push: depend
+push:
 	$(MAKE) -C cmd/external-controller push
+	$(MAKE) -C examples/agents push
 
 check: depend fmt vet
 
