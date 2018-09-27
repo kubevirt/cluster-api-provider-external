@@ -19,6 +19,7 @@ package external
 import (
 	"bytes"
 	"fmt"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 
@@ -41,8 +42,11 @@ func (ext *ExtClient) instanceStatus(machine *clusterv1.Machine) (instanceStatus
 		return nil, nil
 	}
 	currentMachine, err := util.GetMachineIfExists(ext.v1Alpha1Client.Machines(machine.Namespace), machine.ObjectMeta.Name)
-	if err != nil {
-		return nil, err
+	if strings.Contains(err.Error(), "could not find") {
+		currentMachine = nil
+
+	} else if err != nil {
+		return nil, fmt.Errorf("GetMachineIfExists: %v", err)
 	}
 
 	if currentMachine == nil {
@@ -59,7 +63,9 @@ func (ext *ExtClient) updateInstanceStatus(machine *clusterv1.Machine) error {
 	}
 	status := instanceStatus(machine)
 	currentMachine, err := util.GetMachineIfExists(ext.v1Alpha1Client.Machines(machine.Namespace), machine.ObjectMeta.Name)
-	if err != nil {
+	if strings.Contains(err.Error(), "could not find") {
+		err = nil
+	} else if err != nil {
 		return err
 	}
 
