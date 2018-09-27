@@ -115,11 +115,19 @@ func NewMachineActuator(params MachineActuatorParams) (*ExtClient, error) {
 		return nil, err
 	}
 
+	var jobsClient batchv1client.BatchV1Interface
+	var coreClient corev1client.CoreV1Interface
+
+	if params.ClientSet != nil {
+		jobsClient = params.ClientSet.BatchV1()
+		coreClient = params.ClientSet.CoreV1()
+	}
+
 	return &ExtClient{
 		providerConfigCodec:      codec,
 		scheme:                   scheme,
-		jobsClient:               params.ClientSet.BatchV1(),
-		coreClient:               params.ClientSet.CoreV1(),
+		jobsClient:               jobsClient,
+		coreClient:               coreClient,
 		v1Alpha1Client:           params.V1Alpha1Client,
 		machineSetupConfigGetter: params.MachineSetupConfigGetter,
 		eventRecorder:            params.EventRecorder,
@@ -129,10 +137,32 @@ func NewMachineActuator(params MachineActuatorParams) (*ExtClient, error) {
 func (ext *ExtClient) Create(cluster *clusterv1.Cluster, machine *clusterv1.Machine) error {
 	instance, err := ext.instanceIfExists(cluster, machine)
 	if err != nil {
-		return err
+		return fmt.Errorf("Instance existance check failed: %v", err)
 	}
 
 	if instance == nil {
+
+		// TODO: Look up CRUD details from machine templates
+		//
+		// configParams := &machinesetup.ConfigParams{
+		// 	OS:       machineConfig.OS,
+		// 	Roles:    machineConfig.Roles,
+		// 	Versions: machine.Spec.Versions,
+		// }
+		// machineSetupConfigs, err := gce.machineSetupConfigGetter.GetMachineSetupConfig()
+		// if err != nil {
+		// 	return err
+		// }
+		// image, err := machineSetupConfigs.GetImage(configParams)
+		// if err != nil {
+		// 	return err
+		// }
+		// imagePath := gce.getImagePath(image)
+		// metadata, err := gce.getMetadata(cluster, machine, clusterConfig, configParams)
+		// if err != nil {
+		// 	return err
+		// }
+
 		if _, err := ext.executeAction(createEventAction, cluster, machine, false); err != nil {
 			return ext.handleMachineError(machine, errors.CreateMachine(
 				"error creating instance: %v", err), createEventAction)
@@ -447,11 +477,14 @@ func (ext *ExtClient) requiresUpdate(a *clusterv1.Machine, b *clusterv1.Machine)
 func (ext *ExtClient) instanceIfExists(cluster *clusterv1.Cluster, machine *clusterv1.Machine) (*Instance, error) {
 	identifyingMachine := machine
 
+	if machine.ObjectMeta.Name == "" {
+		return nil, nil
+	}
 	// Try to use the last saved status locating the machine
 	// in case instance details have changed
 	status, err := ext.instanceStatus(machine)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("status failed: %v", err)
 	}
 
 	if status != nil {
@@ -460,7 +493,7 @@ func (ext *ExtClient) instanceIfExists(cluster *clusterv1.Cluster, machine *clus
 
 	// Get the VM via specified location and name
 	if _, err := ext.machineproviderconfig(identifyingMachine.Spec.ProviderConfig); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("provider config failed: %v", err)
 	}
 
 	// clusterConfig, err := ext.providerConfigCodec.ClusterProviderFromProviderConfig(cluster.Spec.ProviderConfig)
