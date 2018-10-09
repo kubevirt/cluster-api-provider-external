@@ -14,6 +14,8 @@
 
 .PHONY: gendeepcopy
 
+NS=fence
+
 build:
 	CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' github.com/kubevirt/cluster-api-provider-external/cmd/external-controller
 
@@ -65,3 +67,20 @@ fmt:
 
 vet:
 	go vet ./...
+
+ns:
+	-kubectl create ns $(NS)
+	examples/rbac/create_role.sh  --namespace $(NS) --role-name $(NS)-actuator --role-binding-name $(NS)-actuator
+
+e2e: ns
+	-kubectl -n $(NS) create -f examples/crd.yaml 
+	-kubectl -n $(NS) create -f examples/storage.yaml 
+	kubectl -n $(NS) create -f examples/demo.yaml 
+
+clean:
+	# Delete stuff, wait for the pods to die, then delete the entire namespace
+	-kubectl -n $(NS) delete machine,cluster --all
+	-kubectl -n $(NS) delete crd,deploy,jobs,rs,pods --all
+	while [ "x$$(kubectl -n $(NS) get po 2>/dev/null)" != "x" ]; do sleep 5; /bin/echo -n .; done
+	-kubectl delete ns/$(NS) clusterrole/$(NS)-actuator clusterrolebinding/$(NS)-actuator
+	while [ "x$$(kubectl get ns $(NS) 2>/dev/null)" != "x" ]; do sleep 5; /bin/echo -n .; done

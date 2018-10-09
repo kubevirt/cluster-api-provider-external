@@ -1,0 +1,45 @@
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  name: <ROLE_NAME>
+  namespace: <NAMESPACE>
+rules:
+- apiGroups:
+  - cluster.k8s.io
+  resources:
+  - cluster
+  - machine
+  - machineset
+  - machinedeployments
+  verbs:
+  - "*"
+- apiGroups:
+  - clusterlabs.org
+  resources:
+  - replicatedstatefulsets
+  verbs:
+  - "*"
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - pods
+  - services
+  - endpoints
+  - persistentvolumeclaims
+  - events
+  verbs:
+  - "*"
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - "*"
+# The following permissions can be removed if not using S3 backup and TLS
+- apiGroups:
+  - ""
+  resources: 
+  - secrets
+  verbs:
+  - get

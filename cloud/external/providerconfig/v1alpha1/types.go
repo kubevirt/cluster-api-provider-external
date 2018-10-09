@@ -90,6 +90,9 @@ type CRUDConfig struct {
 	// Container that handles machine operations
 	Container *v1.Container `json:"container"`
 
+	// Container that handles machine operations
+	Volumes []v1.Volume `json:"volumes"`
+
 	// Optional command to be used instead of the default when
 	// handling machine Create operations (power-on/provisioning)
 	CheckCmd []string `json:"checkCmd,omitempty"`

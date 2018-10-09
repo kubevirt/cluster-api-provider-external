@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sirupsen/logrus"
+	"github.com/golang/glog"
 
 	v1batch "k8s.io/api/batch/v1"
 	"k8s.io/api/core/v1"
@@ -47,6 +47,8 @@ func nodeInList(name string, nodes []v1.Node) bool {
 func createCrudJob(action string, machine *clusterv1.Machine, method *providerconfigv1.CRUDConfig) (error, *v1batch.Job) {
 	// Create a Job with a container for each mechanism
 
+	// TODO: Leverage podtemplates?
+
 	volumeMap := map[string]v1.Volume{}
 	containers := []v1.Container{}
 
@@ -66,8 +68,8 @@ func createCrudJob(action string, machine *clusterv1.Machine, method *providerco
 		container.Env = env
 	}
 
-	logrus.Infof("template: %v", method.Container)
-	logrus.Infof("instance: %v", container)
+	// logrus.Infof("template: %v", method.Container)
+	// logrus.Infof("instance: %v", container)
 
 	for _, v := range processSecrets(method, container) {
 		if _, ok := volumeMap[v.Name]; !ok {
@@ -78,12 +80,15 @@ func createCrudJob(action string, machine *clusterv1.Machine, method *providerco
 	containers = append(containers, *container)
 
 	volumes := []v1.Volume{}
+	if method.Volumes != nil {
+		volumes = method.Volumes
+	}
+
 	for _, v := range volumeMap {
 		volumes = append(volumes, v)
 	}
 
-	timeout := int64(300) // TODO: Make this configurable
-	//	numContainers := int32(len(containers))
+	timeout := int64(120) // TODO: Make this configurable
 	numContainers := int32(1)
 
 	// Parallel Jobs with a fixed completion count
@@ -94,7 +99,7 @@ func createCrudJob(action string, machine *clusterv1.Machine, method *providerco
 			APIVersion: "batch/v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("%v-%v-job-", machine.ObjectMeta.Name, strings.ToLower(action)),
+			GenerateName: fmt.Sprintf("%v-job-%v-", machine.ObjectMeta.Name, strings.ToLower(action)),
 			Namespace:    machine.Namespace,
 			// TODO: OwnerReferences: []metav1.OwnerReference{
 			// 	*metav1.NewControllerRef(req, schema.GroupVersionKind{
@@ -210,21 +215,19 @@ func getContainerCommand(c *v1.Container, m *providerconfigv1.CRUDConfig, primit
 
 		if len(m.PassActionAs) > 0 {
 			command = append(command, fmt.Sprintf("--%s", m.PassActionAs))
+			command = append(command, primitive)
 		}
-
-		command = append(command, primitive)
 
 		if len(m.PassTargetAs) > 0 {
 			command = append(command, fmt.Sprintf("--%s", m.PassTargetAs))
+			command = append(command, target)
 		}
-
-		command = append(command, target)
 
 	} else {
 		return fmt.Errorf("ArgumentFormat %s not supported", m.ArgumentFormat), []string{}
 	}
 
-	logrus.Infof("%s %v command: %v", m.Container.Name, primitive, command)
+	glog.Infof("%s %v command: %v", m.Container.Name, primitive, command)
 	return nil, command
 }
 
@@ -245,25 +248,25 @@ func getContainerEnv(m *providerconfigv1.CRUDConfig, primitive string, target st
 	}
 
 	if m.ArgumentFormat == "env" {
-		logrus.Infof("Adding env vars")
+		glog.Infof("Adding env vars")
 		for name, value := range m.Config {
-			logrus.Infof("Adding %v=%v", name, value)
+			glog.Infof("Adding %v=%v", name, value)
 			env = append(env, v1.EnvVar{
 				Name:  name,
 				Value: value,
 			})
 		}
 
-		logrus.Infof("Adding dynamic env vars: %v", m.DynamicConfig)
+		glog.Infof("Adding dynamic env vars: %v", m.DynamicConfig)
 		for _, dc := range m.DynamicConfig {
 			if value, ok := dc.Lookup(target); ok {
-				logrus.Infof("Adding %v=%v (dynamic)", dc.Field, value)
+				glog.Infof("Adding %v=%v (dynamic)", dc.Field, value)
 				env = append(env, v1.EnvVar{
 					Name:  dc.Field,
 					Value: value,
 				})
 			} else {
-				logrus.Errorf("not adding %v (dynamic)", dc.Field)
+				glog.Errorf("not adding %v (dynamic)", dc.Field)
 				return fmt.Errorf("No value of '%s' found for '%s'", dc.Field, target), nil
 			}
 		}

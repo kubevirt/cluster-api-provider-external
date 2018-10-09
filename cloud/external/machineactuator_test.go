@@ -60,22 +60,47 @@ func TestActuatorSetup(t *testing.T) {
 	}
 }
 
-func TestClusterCreate(t *testing.T) {
+func TestClusterCreateExisting(t *testing.T) {
 
 	act, err := setupActuator(t)
 	if err != nil {
 		t.Fatalf("unable to set up actuator: %v", err)
 	}
 
-	config := newExtMachineProviderConfigFixture()
+	cluster := newDefaultClusterFixture(t)
+
+	config := newExtMachineProviderConfigFixture(
+		[]string{"/bin/true"},
+		[]string{"/bin/echo", "/sbin/fence_ipmilan", "--user", "admin", "-o", "on", "--ip", "1.2.3.4"},
+		[]string{"/bin/echo", "/sbin/fence_ipmilan", "--user", "admin", "-o", "off", "--ip", "1.2.3.4"})
 	config.Disks = make([]configv1.Disk, 0)
 
-	cluster := newDefaultClusterFixture(t)
-	machine := newMachine(t, config)
-
+	machine := newMachine(t, "node-exists", config)
 	err = act.Create(cluster, machine)
 	if err != nil {
-		t.Fatalf("unable to create cluster: %v", err)
+		t.Fatalf("(re)creating an existing machine failed: %v", err)
+	}
+}
+
+func TestClusterCreateMissing(t *testing.T) {
+
+	act, err := setupActuator(t)
+	if err != nil {
+		t.Fatalf("unable to set up actuator: %v", err)
+	}
+
+	cluster := newDefaultClusterFixture(t)
+
+	config := newExtMachineProviderConfigFixture(
+		[]string{"/bin/false"},
+		[]string{"/bin/echo", "/sbin/fence_ipmilan", "--user", "admin", "-o", "on", "--ip", "1.2.3.4"},
+		[]string{"/bin/echo", "/sbin/fence_ipmilan", "--user", "admin", "-o", "off", "--ip", "1.2.3.4"})
+	config.Disks = make([]configv1.Disk, 0)
+
+	machine := newMachine(t, "node-missing", config)
+	err = act.Create(cluster, machine)
+	if err != nil {
+		t.Fatalf("unable to create missing machine: %v", err)
 	}
 }
 
@@ -116,7 +141,7 @@ func setupActuator(t *testing.T) (*external.ExtClient, error) {
 	return external.NewMachineActuator(params)
 }
 
-func newExtMachineProviderConfigFixture() configv1.ExtMachineProviderConfig {
+func newExtMachineProviderConfigFixture(checkC []string, createC []string, deleteC []string) configv1.ExtMachineProviderConfig {
 	return configv1.ExtMachineProviderConfig{
 		TypeMeta: v1.TypeMeta{
 			APIVersion: "extproviderconfig/v1alpha1",
@@ -136,9 +161,9 @@ func newExtMachineProviderConfigFixture() configv1.ExtMachineProviderConfig {
 				Name:  "baremetal-fencing",
 				Image: "quay.io/beekhof/fence-agents:0.0.1",
 			},
-			CheckCmd:       []string{"/bin/echo", "/sbin/fence_ipmilan", "--user", "admin", "-o", "status", "--ip", "1.2.3.4"},
-			CreateCmd:      []string{"/bin/echo", "/sbin/fence_ipmilan", "--user", "admin", "-o", "on", "--ip", "1.2.3.4"},
-			DeleteCmd:      []string{"/bin/echo", "/sbin/fence_ipmilan", "--user", "admin", "-o", "off", "--ip", "1.2.3.4"},
+			CheckCmd:       checkC,
+			CreateCmd:      createC,
+			DeleteCmd:      deleteC,
 			ArgumentFormat: "cli",
 			PassTargetAs:   "port",
 			Secrets:        map[string]string{"password": "ipmi-secret"},
@@ -146,7 +171,7 @@ func newExtMachineProviderConfigFixture() configv1.ExtMachineProviderConfig {
 	}
 }
 
-func newMachine(t *testing.T, extProviderConfig configv1.ExtMachineProviderConfig) *v1alpha1.Machine {
+func newMachine(t *testing.T, name string, extProviderConfig configv1.ExtMachineProviderConfig) *v1alpha1.Machine {
 	providerConfigCodec, err := configv1.NewCodec()
 	if err != nil {
 		t.Fatalf("unable to create GCE provider config codec: %v", err)
@@ -158,7 +183,7 @@ func newMachine(t *testing.T, extProviderConfig configv1.ExtMachineProviderConfi
 
 	return &v1alpha1.Machine{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "test1",
+			Name:      name,
 			Namespace: "default",
 		},
 		Spec: v1alpha1.MachineSpec{

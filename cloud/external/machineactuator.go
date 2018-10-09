@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/sirupsen/logrus"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -135,12 +134,14 @@ func NewMachineActuator(params MachineActuatorParams) (*ExtClient, error) {
 }
 
 func (ext *ExtClient) Create(cluster *clusterv1.Cluster, machine *clusterv1.Machine) error {
+
 	instance, err := ext.instanceIfExists(cluster, machine)
 	if err != nil {
 		return fmt.Errorf("Instance existance check failed: %v", err)
 	}
 
 	if instance == nil {
+		glog.Infof("Creating machine %v", machine.ObjectMeta.Name)
 
 		// TODO: Look up CRUD details from machine templates
 		//
@@ -164,6 +165,7 @@ func (ext *ExtClient) Create(cluster *clusterv1.Cluster, machine *clusterv1.Mach
 		// }
 
 		if _, err := ext.executeAction(createEventAction, cluster, machine, false); err != nil {
+			glog.Errorf("Could not create machine %v: %v\n", machine.ObjectMeta.Name, err)
 			return ext.handleMachineError(machine, errors.CreateMachine(
 				"error creating instance: %v", err), createEventAction)
 		}
@@ -172,10 +174,15 @@ func (ext *ExtClient) Create(cluster *clusterv1.Cluster, machine *clusterv1.Mach
 		// If we have a v1Alpha1Client, then annotate the machine so that we
 		// remember exactly what VM we created for it.
 		if ext.v1Alpha1Client != nil {
-			return ext.updateAnnotations(cluster, machine)
+			if err := ext.updateAnnotations(cluster, machine); err != nil {
+				glog.Errorf("Could not annotate machine %v: %v\n", machine.ObjectMeta.Name, err)
+				return nil
+			}
 		}
+		glog.Infof("Machine %v created.\n", machine.ObjectMeta.Name)
+
 	} else {
-		glog.Infof("Skipped creating a VM that already exists.\n")
+		glog.Infof("Skipped creating a machine that already exists.\n")
 	}
 
 	return nil
@@ -220,7 +227,16 @@ func (ext *ExtClient) PostDelete(cluster *clusterv1.Cluster) error {
 }
 
 func (ext *ExtClient) Update(cluster *clusterv1.Cluster, goalMachine *clusterv1.Machine) error {
+	if err := ext.update(cluster, goalMachine); err != nil {
+		glog.Errorf("Could not update %v: %v\n", goalMachine.ObjectMeta.Name, err)
+		return err
+	}
+	return nil
+}
+
+func (ext *ExtClient) update(cluster *clusterv1.Cluster, goalMachine *clusterv1.Machine) error {
 	// Before updating, do some basic validation of the object first.
+	glog.Infof("Processing %v update.\n", goalMachine.ObjectMeta.Name)
 	goalConfig, err := ext.machineproviderconfig(goalMachine.Spec.ProviderConfig)
 	if err != nil {
 		return ext.handleMachineError(goalMachine,
@@ -230,6 +246,7 @@ func (ext *ExtClient) Update(cluster *clusterv1.Cluster, goalMachine *clusterv1.
 		return ext.handleMachineError(goalMachine, verr, noEventAction)
 	}
 
+	glog.Infof("Checking %v status\n", goalMachine.ObjectMeta.Name)
 	status, err := ext.instanceStatus(goalMachine)
 	if err != nil {
 		return err
@@ -256,9 +273,11 @@ func (ext *ExtClient) Update(cluster *clusterv1.Cluster, goalMachine *clusterv1.
 	}
 
 	if !ext.requiresUpdate(currentMachine, goalMachine) {
+		glog.Infof("No update to %v required\n", goalMachine.ObjectMeta.Name)
 		return nil
 	}
 
+	glog.Infof("Performing %v update\n", goalMachine.ObjectMeta.Name)
 	if isMaster(currentConfig.Roles) {
 		// glog.Infof("Doing an in-place upgrade for master.\n")
 		// err = gce.updateMasterInplace(cluster, currentMachine, goalMachine)
@@ -330,6 +349,7 @@ func (ext *ExtClient) executeAction(command string, cluster *clusterv1.Cluster, 
 			return false, err
 		}
 		job = j
+		glog.Infof("Job %v running for %s.", job.Name, machine.ObjectMeta.Name)
 		return true, nil
 	})
 
@@ -339,25 +359,32 @@ func (ext *ExtClient) executeAction(command string, cluster *clusterv1.Cluster, 
 
 	if doWait {
 		if err := ext.waitForJob(job.Name, job.Namespace, -1); err != nil {
+			glog.Errorf("Job %v error: %v", job.Name, err)
 			return nil, err
 		}
 	}
 
+	glog.Infof("Job %v complete", job.Name)
 	return &job.Name, nil
 }
 
 func (ext *ExtClient) waitForJob(jobName string, namespace string, retries int) error {
 
 	job, err := ext.jobsClient.Jobs(namespace).Get(jobName, metav1.GetOptions{})
+	glog.Infof("Waiting %d times for job %v: %v", retries, job.Name, err)
 
 	for lpc := 0; lpc < retries || retries < 0; lpc++ {
 		if err != nil {
 			return err
 		}
+		// logrus.Infof("Job %v/%v: %v", job.Name, job.ObjectMeta.ResourceVersion, job.Status)
 		if len(job.Status.Conditions) > 0 {
 			for _, condition := range job.Status.Conditions {
 
-				if condition.Type == batchv1.JobComplete {
+				if condition.Type == batchv1.JobFailed {
+					return fmt.Errorf("Job %v failed: %v", job.Name, condition.Message)
+
+				} else if condition.Type == batchv1.JobComplete {
 					if job.Status.Succeeded > 0 {
 						return nil
 					} else {
@@ -366,6 +393,7 @@ func (ext *ExtClient) waitForJob(jobName string, namespace string, retries int) 
 				}
 			}
 		}
+		time.Sleep(5 * time.Second)
 
 		options := metav1.GetOptions{ResourceVersion: job.ObjectMeta.ResourceVersion}
 		job, err = ext.jobsClient.Jobs(namespace).Get(job.ObjectMeta.Name, options)
@@ -418,7 +446,7 @@ func (ext *ExtClient) chooseCRUDConfig(clusterConfig *providerconfigv1.ExtCluste
 	}
 
 	if chosen != nil {
-		logrus.Infof("Chose %v for %v primitives", chosen.ObjectMeta.Name, machine.ObjectMeta.Name)
+		glog.Infof("Chose %v for %v primitives", chosen.ObjectMeta.Name, machine.ObjectMeta.Name)
 		return nil, chosen
 	}
 
@@ -501,10 +529,13 @@ func (ext *ExtClient) instanceIfExists(cluster *clusterv1.Cluster, machine *clus
 	// 	return nil, err
 	// }
 
+	glog.Infof("Checking if machine %v exists", machine.ObjectMeta.Name)
 	if _, err := ext.executeAction(checkEventAction, cluster, machine, true); err != nil {
+		glog.Infof("Machine %v not found: %v", machine.ObjectMeta.Name, err)
 		return nil, nil
 	}
 
+	glog.Infof("Machine %v exists", machine.ObjectMeta.Name)
 	return &Instance{Name: identifyingMachine.ObjectMeta.Name}, nil
 }
 
