@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	secretsDir = "/etc/fencing/secrets/"
+	secretsDir = "/etc/fencing/secrets"
 )
 
 func nodeInList(name string, nodes []v1.Node) bool {
@@ -59,7 +59,7 @@ func createCrudJob(action string, machine *clusterv1.Machine, method *providerco
 	if err, cmd := getContainerCommand(container, method, action, machine.ObjectMeta.Name); err != nil {
 		return fmt.Errorf("Method %s aborted: %v", action, err), nil
 	} else if len(cmd) > 0 {
-		container.Command = cmd
+		container.Args = cmd
 	}
 
 	if err, env := getContainerEnv(method, action, machine.ObjectMeta.Name, secretsDir); err != nil {
@@ -88,7 +88,7 @@ func createCrudJob(action string, machine *clusterv1.Machine, method *providerco
 		volumes = append(volumes, v)
 	}
 
-	timeout := int64(120) // TODO: Make this configurable
+	timeout := int64(30) // TODO: Make this configurable
 	numContainers := int32(1)
 
 	// Parallel Jobs with a fixed completion count
@@ -115,6 +115,8 @@ func createCrudJob(action string, machine *clusterv1.Machine, method *providerco
 			Parallelism:           &numContainers,
 			Completions:           &numContainers,
 			ActiveDeadlineSeconds: &timeout,
+			// https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/#clean-up-finished-jobs-automatically
+			// TTLSecondsAfterFinished: 100,
 			Template: v1.PodTemplateSpec{
 				Spec: v1.PodSpec{
 					Containers:    containers,
@@ -145,6 +147,8 @@ func processSecrets(method *providerconfigv1.CRUDConfig, c *v1.Container) []v1.V
 
 		// volumeName must contain only a-z, 0-9, and -
 		volumeName := strings.Map(volumeNameMap, fmt.Sprintf("secret-%s", key))
+		mount := fmt.Sprintf("%s/%s-%s", secretsDir, s, key)
+		data := fmt.Sprintf("%s/%s", mount, key)
 
 		// Create volumes for any sensitive parameters that are stored as k8s secrets
 		volumes = append(volumes, v1.Volume{
@@ -156,17 +160,17 @@ func processSecrets(method *providerconfigv1.CRUDConfig, c *v1.Container) []v1.V
 			},
 		})
 
-		// Relies on an ENTRYPOINT that looks for SECRETPATH_field=/path/to/file and add: --field=$(cat /path/to/file) to the command line
+		// Relies on an ENTRYPOINT that looks for SECRETPATH_field=/path/to/file and adds: --field=$(cat /path/to/file) to the command line
 		c.Env = append(c.Env, v1.EnvVar{
 			Name:  fmt.Sprintf("SECRETPATH_%s", key),
-			Value: fmt.Sprintf("%s/%s", secretsDir, s),
+			Value: data,
 		})
 
 		// Mount the secrets into the container so they can be easily retrieved
 		c.VolumeMounts = append(c.VolumeMounts, v1.VolumeMount{
 			Name:      volumeName,
 			ReadOnly:  true,
-			MountPath: secretsDir + s,
+			MountPath: mount,
 		})
 	}
 	return volumes
@@ -174,21 +178,19 @@ func processSecrets(method *providerconfigv1.CRUDConfig, c *v1.Container) []v1.V
 
 func getContainerCommand(c *v1.Container, m *providerconfigv1.CRUDConfig, primitive string, target string) (error, []string) {
 	command := []string{}
+	if c.Args != nil {
+		command = c.Args
+	}
 
 	switch primitive {
 	case createEventAction:
-		command = m.CreateCmd
+		command = append(command, m.CreateCmd...)
 	case deleteEventAction:
-		command = m.DeleteCmd
+		command = append(command, m.DeleteCmd...)
 	case rebootEventAction:
-		command = m.RebootCmd
+		command = append(command, m.RebootCmd...)
 	case checkEventAction:
-		command = m.CheckCmd
-	default:
-		if c.Command == nil {
-			return fmt.Errorf("Unknown primitive '%s' requested for '%s'", primitive, target), []string{}
-		}
-		command = c.Command
+		command = append(command, m.CheckCmd...)
 	}
 
 	if m.ArgumentFormat == "env" {
