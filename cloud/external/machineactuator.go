@@ -143,27 +143,6 @@ func (ext *ExtClient) Create(cluster *clusterv1.Cluster, machine *clusterv1.Mach
 	if instance == nil {
 		glog.Infof("Creating machine %v", machine.ObjectMeta.Name)
 
-		// TODO: Look up CRUD details from machine templates
-		//
-		// configParams := &machinesetup.ConfigParams{
-		// 	OS:       machineConfig.OS,
-		// 	Roles:    machineConfig.Roles,
-		// 	Versions: machine.Spec.Versions,
-		// }
-		// machineSetupConfigs, err := gce.machineSetupConfigGetter.GetMachineSetupConfig()
-		// if err != nil {
-		// 	return err
-		// }
-		// image, err := machineSetupConfigs.GetImage(configParams)
-		// if err != nil {
-		// 	return err
-		// }
-		// imagePath := gce.getImagePath(image)
-		// metadata, err := gce.getMetadata(cluster, machine, clusterConfig, configParams)
-		// if err != nil {
-		// 	return err
-		// }
-
 		if _, err := ext.executeAction(createEventAction, cluster, machine, false); err != nil {
 			glog.Errorf("Could not create machine %v: %v\n", machine.ObjectMeta.Name, err)
 			return ext.handleMachineError(machine, errors.CreateMachine(
@@ -229,6 +208,7 @@ func (ext *ExtClient) PostDelete(cluster *clusterv1.Cluster) error {
 func (ext *ExtClient) Update(cluster *clusterv1.Cluster, goalMachine *clusterv1.Machine) error {
 	if err := ext.update(cluster, goalMachine); err != nil {
 		glog.Errorf("Could not update %v: %v\n", goalMachine.ObjectMeta.Name, err)
+		glog.Errorf("Goal: %v\n", goalMachine)
 		return err
 	}
 	return nil
@@ -426,27 +406,55 @@ func (ext *ExtClient) chooseCRUDConfig(clusterConfig *providerconfigv1.ExtCluste
 	labelThreshold := -1
 	machineConfig, err := ext.machineproviderconfig(machine.Spec.ProviderConfig)
 	if err != nil {
+		glog.Infof("Could not unpack machine provider config for %v: %v", machine.ObjectMeta.Name, err)
 		return err, nil
 	}
 
 	// Prefer primitives defined as part of the Machine object over those
 	// defined in the the Cluster
 	chosen := machineConfig.CRUDPrimitives
+	if chosen != nil {
+		glog.Infof("Using inline %v primitives for machine %v", chosen.ObjectMeta.Name, machine.ObjectMeta.Name)
+		return nil, chosen
+	}
 
-	if chosen == nil {
-		for _, cfg := range clusterConfig.CRUDPrimitives {
-			if len(cfg.NodeSelector) > labelThreshold {
-				err, nodes := ext.ListNodes(cfg.NodeSelector)
-				if err == nil && nodeInList(machine.ObjectMeta.Name, nodes) {
-					chosen = &cfg
-					labelThreshold = len(cfg.NodeSelector)
-				}
+	// Next try the cluster config
+	for _, cfg := range clusterConfig.CRUDPrimitives {
+		if len(cfg.NodeSelector) > labelThreshold {
+			err, nodes := ext.ListNodes(cfg.NodeSelector)
+			if err == nil && nodeInList(machine.ObjectMeta.Name, nodes) {
+				chosen = &cfg
+				labelThreshold = len(cfg.NodeSelector)
 			}
 		}
 	}
 
 	if chosen != nil {
-		glog.Infof("Chose %v for %v primitives", chosen.ObjectMeta.Name, machine.ObjectMeta.Name)
+		glog.Infof("Chose %v primitives for machine %v from list", chosen.ObjectMeta.Name, machine.ObjectMeta.Name)
+		return nil, chosen
+	}
+
+	// Now try machine templates
+	configParams := &machinesetup.ConfigParams{
+		OS:       machineConfig.OS,
+		Roles:    machineConfig.Roles,
+		Versions: machine.Spec.Versions,
+	}
+	machineSetupConfigs, err := ext.machineSetupConfigGetter.GetMachineSetupConfig()
+	if err != nil {
+		glog.Infof("No machine setup config: %v", err)
+		return err, nil
+	}
+
+	meta, err := machineSetupConfigs.GetMetadata(configParams)
+	if err != nil {
+		glog.Infof("No matching machine setup: %v", err)
+	} else {
+		chosen = meta.CRUDPrimitives
+	}
+
+	if chosen != nil {
+		glog.Infof("Chose %v primitives for machine %v matching: %v", chosen.ObjectMeta.Name, machine.ObjectMeta.Name, configParams)
 		return nil, chosen
 	}
 

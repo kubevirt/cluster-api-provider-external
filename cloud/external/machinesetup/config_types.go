@@ -70,6 +70,7 @@ type config struct {
 type Metadata struct {
 	StartupScript string `json:"startupScript"`
 	// TODO: Move here? CRUDPrimitives *CRUDConfig `json:"crudPrimitives"`
+	CRUDPrimitives *providerconfigv1.CRUDConfig `json:"crudPrimitives"`
 }
 
 type ConfigParams struct {
