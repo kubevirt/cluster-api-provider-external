@@ -141,15 +141,15 @@ type CRUDConfig struct {
 
 type DynamicConfigElement struct {
 	Field   string            `json:"field"`
-	Default string            `json:"default"`
+	Default *string           `json:"default,omitempty"`
 	Values  map[string]string `json:"values"`
 }
 
 func (dc *DynamicConfigElement) Lookup(key string) (string, bool) {
 	if val, ok := dc.Values[key]; ok {
 		return val, true
-	} else if len(dc.Default) > 0 {
-		return dc.Default, true
+	} else if dc.Default != nil {
+		return *dc.Default, true
 	}
 	return "", false
 }
