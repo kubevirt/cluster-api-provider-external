@@ -18,6 +18,7 @@ Options:
 " >&2
 }
 
+KUBECTL="${KUBECTL:-kubectl}"
 ROLE_NAME="${ROLE_NAME:-rss-operator}"
 ROLE_BINDING_NAME="${ROLE_BINDING_NAME:-rss-operator}"
 NAMESPACE="${NAMESPACE:-default}"
@@ -48,11 +49,11 @@ echo "Creating role with ROLE_NAME=${ROLE_NAME}, NAMESPACE=${NAMESPACE}"
 sed -e "s/<ROLE_NAME>/${ROLE_NAME}/g" \
   -e "s/<NAMESPACE>/${NAMESPACE}/g" \
   "${OPERATOR_ROOT}/examples/rbac/cluster-role-template.yaml" | \
-  kubectl create -f -
+  ${KUBECTL} create -f -
 
 echo "Creating role binding with ROLE_NAME=${ROLE_NAME}, ROLE_BINDING_NAME=${ROLE_BINDING_NAME}, NAMESPACE=${NAMESPACE}"
 sed -e "s/<ROLE_NAME>/${ROLE_NAME}/g" \
   -e "s/<ROLE_BINDING_NAME>/${ROLE_BINDING_NAME}/g" \
   -e "s/<NAMESPACE>/${NAMESPACE}/g" \
   "${OPERATOR_ROOT}/examples/rbac/cluster-role-binding-template.yaml" | \
-  kubectl create -f -
+  ${KUBECTL} create -f -

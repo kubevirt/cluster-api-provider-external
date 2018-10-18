@@ -14,7 +14,9 @@
 
 .PHONY: gendeepcopy
 
-NS=fence
+NS=fenced
+KUBECTL=kubectl
+YAML=examples/crd.yaml examples/storage.yaml examples/demo.yaml 
 
 build:
 	CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' github.com/kubevirt/cluster-api-provider-external/cmd/external-controller
@@ -69,18 +71,21 @@ vet:
 	go vet ./...
 
 ns:
-	-kubectl create ns $(NS)
+	echo KUBECTL=$(KUBECTL)
+	-$(KUBECTL) create ns $(NS)
 	examples/rbac/create_role.sh  --namespace $(NS) --role-name $(NS)-actuator --role-binding-name $(NS)-actuator
 
 e2e: ns
-	-kubectl -n $(NS) create -f examples/crd.yaml 
-	-kubectl -n $(NS) create -f examples/storage.yaml 
-	kubectl -n $(NS) create -f examples/demo.yaml 
+	for yaml in $(YAML); do \
+		echo "Applying $$yaml";\
+		$(KUBECTL) -n $(NS) create -f $$yaml ;\
+	done
 
 clean:
 	# Delete stuff, wait for the pods to die, then delete the entire namespace
-	-kubectl -n $(NS) delete machine,cluster --all
-	-kubectl -n $(NS) delete crd,deploy,jobs,rs,pods --all
-	while [ "x$$(kubectl -n $(NS) get po 2>/dev/null)" != "x" ]; do sleep 5; /bin/echo -n .; done
-	-kubectl delete ns/$(NS) clusterrole/$(NS)-actuator clusterrolebinding/$(NS)-actuator
-	while [ "x$$(kubectl get ns $(NS) 2>/dev/null)" != "x" ]; do sleep 5; /bin/echo -n .; done
+	-$(KUBECTL) -n $(NS) delete deploy,jobs,rs,pods --all
+	-$(KUBECTL) -n $(NS) delete machine,cluster --all
+	-$(KUBECTL) -n $(NS) delete crd --all
+	while [ "x$$($(KUBECTL) -n $(NS) get po 2>/dev/null)" != "x" ]; do sleep 5; /bin/echo -n .; done
+	-$(KUBECTL) delete ns/$(NS) clusterrole/$(NS)-actuator clusterrolebinding/$(NS)-actuator
+	while [ "x$$($(KUBECTL) get ns $(NS) 2>/dev/null)" != "x" ]; do sleep 5; /bin/echo -n .; done
