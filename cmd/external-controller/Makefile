@@ -18,7 +18,7 @@ GCR_BUCKET = beekhof
 PREFIX = quay.io/$(GCR_BUCKET)
 DEV_PREFIX ?= quay.io/beekhof
 NAME = external-controller
-TAG = 0.0.9
+TAG = 0.0.16
 
 image:
 	docker build -t "$(PREFIX)/$(NAME):$(TAG)" -f ./Dockerfile ../..
