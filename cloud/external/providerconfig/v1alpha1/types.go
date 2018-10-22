@@ -95,19 +95,19 @@ type CRUDConfig struct {
 
 	// Optional command to be used instead of the default when
 	// handling machine Create operations (power-on/provisioning)
-	CheckCmd []string `json:"checkCmd,omitempty"`
+	CheckArgs []string `json:"checkArgs,omitempty"`
 
 	// Optional command to be used instead of the default when
 	// handling machine Create operations (power-on/provisioning)
-	CreateCmd []string `json:"createCmd,omitempty"`
+	CreateArgs []string `json:"createArgs,omitempty"`
 
 	// Optional command to be used instead of the default when
 	// handling machine Delete operations (power-off/deprovisioning)
-	DeleteCmd []string `json:"deleteCmd,omitempty"`
+	DeleteArgs []string `json:"deleteArgs,omitempty"`
 
 	// Optional command to be used instead of the default when
 	// handling machine Reboot operations
-	RebootCmd []string `json:"rebootCmd,omitempty"`
+	RebootArgs []string `json:"rebootArgs,omitempty"`
 
 	// How Secrets and DynamicConfig should be passed to the
 	// container: ([env], cli)

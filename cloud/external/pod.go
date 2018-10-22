@@ -184,13 +184,13 @@ func getContainerCommand(c *v1.Container, m *providerconfigv1.CRUDConfig, primit
 
 	switch primitive {
 	case createEventAction:
-		command = append(command, m.CreateCmd...)
+		command = append(command, m.CreateArgs...)
 	case deleteEventAction:
-		command = append(command, m.DeleteCmd...)
+		command = append(command, m.DeleteArgs...)
 	case rebootEventAction:
-		command = append(command, m.RebootCmd...)
+		command = append(command, m.RebootArgs...)
 	case checkEventAction:
-		command = append(command, m.CheckCmd...)
+		command = append(command, m.CheckArgs...)
 	}
 
 	if m.ArgumentFormat == "env" {

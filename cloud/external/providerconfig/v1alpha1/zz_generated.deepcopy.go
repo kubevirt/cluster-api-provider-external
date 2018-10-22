@@ -48,23 +48,23 @@ func (in *CRUDConfig) DeepCopyInto(out *CRUDConfig) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.CheckCmd != nil {
-		in, out := &in.CheckCmd, &out.CheckCmd
+	if in.CheckArgs != nil {
+		in, out := &in.CheckArgs, &out.CheckArgs
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.CreateCmd != nil {
-		in, out := &in.CreateCmd, &out.CreateCmd
+	if in.CreateArgs != nil {
+		in, out := &in.CreateArgs, &out.CreateArgs
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.DeleteCmd != nil {
-		in, out := &in.DeleteCmd, &out.DeleteCmd
+	if in.DeleteArgs != nil {
+		in, out := &in.DeleteArgs, &out.DeleteArgs
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.RebootCmd != nil {
-		in, out := &in.RebootCmd, &out.RebootCmd
+	if in.RebootArgs != nil {
+		in, out := &in.RebootArgs, &out.RebootArgs
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
