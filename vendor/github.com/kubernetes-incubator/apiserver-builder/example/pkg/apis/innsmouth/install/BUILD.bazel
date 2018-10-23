@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["doc.go"],
+    importmap = "kubevirt.io/cluster-api-provider-external/vendor/github.com/kubernetes-incubator/apiserver-builder/example/pkg/apis/innsmouth/install",
+    importpath = "github.com/kubernetes-incubator/apiserver-builder/example/pkg/apis/innsmouth/install",
+    visibility = ["//visibility:public"],
+)

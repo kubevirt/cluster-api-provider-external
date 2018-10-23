@@ -26,9 +26,9 @@ import (
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	providerconfigv1 "github.com/kubevirt/cluster-api-provider-external/cloud/external/providerconfig/v1alpha1"
-
 	clusterv1 "sigs.k8s.io/cluster-api/pkg/apis/cluster/v1alpha1"
+
+	"kubevirt.io/cluster-api-provider-external/cloud/external/providerconfig/v1alpha1"
 )
 
 const (
@@ -44,7 +44,7 @@ func nodeInList(name string, nodes []v1.Node) bool {
 	return false
 }
 
-func createCrudJob(action string, machine *clusterv1.Machine, method *providerconfigv1.CRUDConfig) (error, *v1batch.Job) {
+func createCrudJob(action string, machine *clusterv1.Machine, method *v1alpha1.CRUDConfig) (error, *v1batch.Job) {
 	// Create a Job with a container for each mechanism
 
 	// TODO: Leverage podtemplates?
@@ -103,8 +103,8 @@ func createCrudJob(action string, machine *clusterv1.Machine, method *providerco
 			Namespace:    machine.Namespace,
 			// TODO: OwnerReferences: []metav1.OwnerReference{
 			// 	*metav1.NewControllerRef(req, schema.GroupVersionKind{
-			// 		Group:   providerconfigv1.SchemeGroupVersion.Group,
-			// 		Version: providerconfigv1.SchemeGroupVersion.Version,
+			// 		Group:   v1alpha1.SchemeGroupVersion.Group,
+			// 		Version: v1alpha1.SchemeGroupVersion.Version,
 			// 		Kind:    "FencingRequest",
 			// 	}),
 			// },
@@ -141,7 +141,7 @@ func volumeNameMap(r rune) rune {
 	}
 }
 
-func processSecrets(method *providerconfigv1.CRUDConfig, c *v1.Container) []v1.Volume {
+func processSecrets(method *v1alpha1.CRUDConfig, c *v1.Container) []v1.Volume {
 	volumes := []v1.Volume{}
 	for key, s := range method.Secrets {
 
@@ -176,7 +176,7 @@ func processSecrets(method *providerconfigv1.CRUDConfig, c *v1.Container) []v1.V
 	return volumes
 }
 
-func getContainerCommand(c *v1.Container, m *providerconfigv1.CRUDConfig, primitive string, target string) (error, []string) {
+func getContainerCommand(c *v1.Container, m *v1alpha1.CRUDConfig, primitive string, target string) (error, []string) {
 	command := []string{}
 	if c.Args != nil {
 		command = c.Args
@@ -233,7 +233,7 @@ func getContainerCommand(c *v1.Container, m *providerconfigv1.CRUDConfig, primit
 	return nil, command
 }
 
-func getContainerEnv(m *providerconfigv1.CRUDConfig, primitive string, target string, secretsDir string) (error, []v1.EnvVar) {
+func getContainerEnv(m *v1alpha1.CRUDConfig, primitive string, target string, secretsDir string) (error, []v1.EnvVar) {
 	env := []v1.EnvVar{
 		{
 			Name:  "ARG_FORMAT",

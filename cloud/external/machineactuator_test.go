@@ -23,15 +23,16 @@ import (
 	"github.com/golang/glog"
 	"github.com/kubernetes-incubator/apiserver-builder/pkg/controller"
 
-	"github.com/kubevirt/cluster-api-provider-external/cloud/external"
-	"github.com/kubevirt/cluster-api-provider-external/cloud/external/machinesetup"
-	configv1 "github.com/kubevirt/cluster-api-provider-external/cloud/external/providerconfig/v1alpha1"
-	machineoptions "github.com/kubevirt/cluster-api-provider-external/cmd/external-controller/machine-controller-app/options"
+	"kubevirt.io/cluster-api-provider-external/cloud/external"
+	"kubevirt.io/cluster-api-provider-external/cloud/external/machinesetup"
+	configv1 "kubevirt.io/cluster-api-provider-external/cloud/external/providerconfig/v1alpha1"
+	machineoptions "kubevirt.io/cluster-api-provider-external/cmd/external-controller/machine-controller-app/options"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/cluster-api/pkg/apis/cluster/v1alpha1"
 	clusterclient "sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset"
@@ -109,7 +110,7 @@ func setupActuator(t *testing.T) (*external.ExtClient, error) {
 	machineServer := machineoptions.NewMachineControllerServer("machine_setup_configs.yaml")
 	machineServer.CommonConfig.Kubeconfig = kubeconfig
 
-	kubeConfig, err := controller.GetConfig(machineServer.CommonConfig.Kubeconfig)
+	kubeConfig, err := clientcmd.BuildConfigFromFlags("", machineServer.CommonConfig.Kubeconfig)
 	if err != nil {
 		glog.Fatalf("Could not create Config (%v) for talking to the apiserver: %v", machineServer.CommonConfig.Kubeconfig, err)
 	}

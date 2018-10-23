@@ -1,0 +1,23 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "client.go",
+        "ginkgo.go",
+        "server.go",
+    ],
+    importmap = "kubevirt.io/cluster-api-provider-external/vendor/github.com/kubernetes-incubator/apiserver-builder/pkg/test",
+    importpath = "github.com/kubernetes-incubator/apiserver-builder/pkg/test",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/kubernetes-incubator/apiserver-builder/pkg/builders:go_default_library",
+        "//vendor/github.com/kubernetes-incubator/apiserver-builder/pkg/cmd/server:go_default_library",
+        "//vendor/k8s.io/client-go/rest:go_default_library",
+        "@com_github_onsi_ginkgo//config:go_default_library",
+        "@com_github_onsi_ginkgo//types:go_default_library",
+        "@io_k8s_apimachinery//pkg/openapi:go_default_library",
+        "@io_k8s_apiserver//pkg/server:go_default_library",
+        "@io_k8s_apiserver//pkg/server/options:go_default_library",
+    ],
+)

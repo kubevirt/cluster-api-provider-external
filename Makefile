@@ -18,25 +18,26 @@ NS=fenced
 KUBECTL=kubectl
 YAML=examples/crd.yaml examples/storage.yaml examples/demo.yaml 
 
+bazel-generate:
+	SYNC_VENDOR=true hack/dockerized "bazel run :gazelle"
+
 build:
 	CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' github.com/kubevirt/cluster-api-provider-external/cmd/external-controller
 
 all: generate install images
 
-.PHONY: depend
-depend:
-	dep version || go get -u github.com/golang/dep/cmd/dep
-	dep ensure -v
-
-	# go libraries often ship BUILD and BUILD.bazel files, but they often don't work.
-	# We delete them and regenerate them
-	find vendor -name "BUILD" -delete
-	find vendor -name "BUILD.bazel" -delete
-
-	bazel run //:gazelle
-
 depend-update: work
 	dep ensure -update
+
+deps-install:
+	SYNC_VENDOR=true hack/dockerized "dep ensure -v"
+
+deps-update:
+	SYNC_VENDOR=true hack/dockerized "dep ensure -v -update"
+
+distclean: clean
+	hack/dockerized "rm -rf vendor/ && rm -f Gopkg.lock"
+	rm -rf vendor/
 
 generate: gendeepcopy
 
@@ -48,7 +49,7 @@ gendeepcopy:
 	  -h boilerplate.go.txt
 	 #--logtostderr -v 9
 
-install: depend
+nstall: depend
 	CGO_ENABLED=0 go install -a -ldflags '-extldflags "-static"' github.com/kubevirt/cluster-api-provider-external/cmd/external-controller
 
 images:
@@ -89,3 +90,5 @@ clean:
 	while [ "x$$($(KUBECTL) -n $(NS) get po 2>/dev/null)" != "x" ]; do sleep 5; /bin/echo -n .; done
 	-$(KUBECTL) delete ns/$(NS) clusterrole/$(NS)-actuator clusterrolebinding/$(NS)-actuator
 	while [ "x$$($(KUBECTL) get ns $(NS) 2>/dev/null)" != "x" ]; do sleep 5; /bin/echo -n .; done
+
+.PHONY: bazel-generate deps-install deps-update distclean

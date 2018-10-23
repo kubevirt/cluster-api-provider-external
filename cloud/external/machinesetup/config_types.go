@@ -21,14 +21,13 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-
 	"reflect"
 
 	"github.com/ghodss/yaml"
 
-	providerconfigv1 "github.com/kubevirt/cluster-api-provider-external/cloud/external/providerconfig/v1alpha1"
-
 	clusterv1 "sigs.k8s.io/cluster-api/pkg/apis/cluster/v1alpha1"
+
+	"kubevirt.io/cluster-api-provider-external/cloud/external/providerconfig/v1alpha1"
 )
 
 // These store config common to multiple Machines
@@ -70,12 +69,12 @@ type config struct {
 type Metadata struct {
 	StartupScript string `json:"startupScript"`
 	// TODO: Move here? CRUDPrimitives *CRUDConfig `json:"crudPrimitives"`
-	CRUDPrimitives *providerconfigv1.CRUDConfig `json:"crudPrimitives"`
+	CRUDPrimitives *v1alpha1.CRUDConfig `json:"crudPrimitives"`
 }
 
 type ConfigParams struct {
 	OS       string
-	Roles    []providerconfigv1.MachineRole
+	Roles    []v1alpha1.MachineRole
 	Versions clusterv1.MachineVersionInfo
 }
 
@@ -161,8 +160,8 @@ func (vc *ValidConfigs) matchMachineSetupConfig(params *ConfigParams) (*config, 
 	}
 }
 
-func rolesToMap(roles []providerconfigv1.MachineRole) map[providerconfigv1.MachineRole]int {
-	rolesMap := map[providerconfigv1.MachineRole]int{}
+func rolesToMap(roles []v1alpha1.MachineRole) map[v1alpha1.MachineRole]int {
+	rolesMap := map[v1alpha1.MachineRole]int{}
 	for _, role := range roles {
 		rolesMap[role] = rolesMap[role] + 1
 	}

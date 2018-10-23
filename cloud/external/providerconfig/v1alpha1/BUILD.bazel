@@ -8,10 +8,10 @@ go_library(
         "types.go",
         "zz_generated.deepcopy.go",
     ],
-    importpath = "github.com/kubevirt/cluster-api-provider-external/cloud/google/gceproviderconfig/v1alpha1",
+    importpath = "kubevirt.io/cluster-api-provider-external/cloud/external/providerconfig/v1alpha1",
     visibility = ["//visibility:public"],
     deps = [
-        "//cloud/google/gceproviderconfig:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",

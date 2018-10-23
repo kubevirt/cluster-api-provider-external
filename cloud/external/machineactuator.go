@@ -26,26 +26,23 @@ import (
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-
 	"k8s.io/client-go/kubernetes"
 	batchv1client "k8s.io/client-go/kubernetes/typed/batch/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 
-	"github.com/kubevirt/cluster-api-provider-external/cloud/external/machinesetup"
-	providerconfigv1 "github.com/kubevirt/cluster-api-provider-external/cloud/external/providerconfig/v1alpha1"
-
 	clustercommon "sigs.k8s.io/cluster-api/pkg/apis/cluster/common"
 	clusterv1 "sigs.k8s.io/cluster-api/pkg/apis/cluster/v1alpha1"
-	client "sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset/typed/cluster/v1alpha1"
+	clusterclient "sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset/typed/cluster/v1alpha1"
 	"sigs.k8s.io/cluster-api/pkg/errors"
-	//	"sigs.k8s.io/cluster-api/pkg/util"
+
+	"kubevirt.io/cluster-api-provider-external/cloud/external/machinesetup"
+	"kubevirt.io/cluster-api-provider-external/cloud/external/providerconfig/v1alpha1"
 )
 
 const (
@@ -87,9 +84,9 @@ type Instance struct {
 }
 
 type ExtClient struct {
-	providerConfigCodec      *providerconfigv1.ExtProviderConfigCodec
+	providerConfigCodec      *v1alpha1.ExtProviderConfigCodec
 	scheme                   *runtime.Scheme
-	v1Alpha1Client           client.ClusterV1alpha1Interface
+	v1Alpha1Client           clusterclient.ClusterV1alpha1Interface
 	jobsClient               batchv1client.BatchV1Interface
 	coreClient               corev1client.CoreV1Interface
 	machineSetupConfigGetter ExtClientMachineSetupConfigGetter
@@ -97,19 +94,19 @@ type ExtClient struct {
 }
 
 type MachineActuatorParams struct {
-	V1Alpha1Client           client.ClusterV1alpha1Interface
+	V1Alpha1Client           clusterclient.ClusterV1alpha1Interface
 	ClientSet                *kubernetes.Clientset
 	MachineSetupConfigGetter ExtClientMachineSetupConfigGetter
 	EventRecorder            record.EventRecorder
 }
 
 func NewMachineActuator(params MachineActuatorParams) (*ExtClient, error) {
-	scheme, err := providerconfigv1.NewScheme()
+	scheme, err := v1alpha1.NewScheme()
 	if err != nil {
 		return nil, err
 	}
 
-	codec, err := providerconfigv1.NewCodec()
+	codec, err := v1alpha1.NewCodec()
 	if err != nil {
 		return nil, err
 	}
@@ -402,7 +399,7 @@ func (ext *ExtClient) waitForJob(jobName string, namespace string, retries int) 
 // 	Message string `json:"message,omitempty" protobuf:"bytes,6,opt,name=message"`
 // }
 
-func (ext *ExtClient) chooseCRUDConfig(clusterConfig *providerconfigv1.ExtClusterProviderConfig, machine *clusterv1.Machine) (error, *providerconfigv1.CRUDConfig) {
+func (ext *ExtClient) chooseCRUDConfig(clusterConfig *v1alpha1.ExtClusterProviderConfig, machine *clusterv1.Machine) (error, *v1alpha1.CRUDConfig) {
 	labelThreshold := -1
 	machineConfig, err := ext.machineproviderconfig(machine.Spec.ProviderConfig)
 	if err != nil {
@@ -461,9 +458,9 @@ func (ext *ExtClient) chooseCRUDConfig(clusterConfig *providerconfigv1.ExtCluste
 	return fmt.Errorf("No valid config for %v", machine.ObjectMeta.Name), nil
 }
 
-func isMaster(roles []providerconfigv1.MachineRole) bool {
+func isMaster(roles []v1alpha1.MachineRole) bool {
 	for _, r := range roles {
-		if r == providerconfigv1.MasterRole {
+		if r == v1alpha1.MasterRole {
 			return true
 		}
 	}
@@ -562,8 +559,8 @@ func (ext *ExtClient) ListNodes(selector map[string]string) (error, []corev1.Nod
 	return err, nodes.Items
 }
 
-func (ext *ExtClient) machineproviderconfig(providerConfig clusterv1.ProviderConfig) (*providerconfigv1.ExtMachineProviderConfig, error) {
-	var config providerconfigv1.ExtMachineProviderConfig
+func (ext *ExtClient) machineproviderconfig(providerConfig clusterv1.ProviderConfig) (*v1alpha1.ExtMachineProviderConfig, error) {
+	var config v1alpha1.ExtMachineProviderConfig
 	err := ext.providerConfigCodec.DecodeFromProviderConfig(providerConfig, &config)
 	if err != nil {
 		return nil, err
@@ -571,7 +568,7 @@ func (ext *ExtClient) machineproviderconfig(providerConfig clusterv1.ProviderCon
 	return &config, nil
 }
 
-func (ext *ExtClient) validateMachine(machine *clusterv1.Machine, config *providerconfigv1.ExtMachineProviderConfig) *errors.MachineError {
+func (ext *ExtClient) validateMachine(machine *clusterv1.Machine, config *v1alpha1.ExtMachineProviderConfig) *errors.MachineError {
 	// if machine.Spec.Versions.Kubelet == "" {
 	// 	return errors.InvalidMachineConfiguration("spec.versions.kubelet can't be empty")
 	// }

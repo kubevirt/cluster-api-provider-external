@@ -18,25 +18,26 @@ package external
 
 import (
 	"fmt"
+
 	"github.com/golang/glog"
 
-	providerconfigv1 "github.com/kubevirt/cluster-api-provider-external/cloud/external/providerconfig/v1alpha1"
-
 	clusterv1 "sigs.k8s.io/cluster-api/pkg/apis/cluster/v1alpha1"
-	client "sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset/typed/cluster/v1alpha1"
+	clusterclient "sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset/typed/cluster/v1alpha1"
+
+	"kubevirt.io/cluster-api-provider-external/cloud/external/providerconfig/v1alpha1"
 )
 
 type ExtClusterClient struct {
-	clusterClient       client.ClusterInterface
-	providerConfigCodec *providerconfigv1.ExtProviderConfigCodec
+	clusterClient       clusterclient.ClusterInterface
+	providerConfigCodec *v1alpha1.ExtProviderConfigCodec
 }
 
 type ClusterActuatorParams struct {
-	ClusterClient client.ClusterInterface
+	ClusterClient clusterclient.ClusterInterface
 }
 
 func NewClusterActuator(params ClusterActuatorParams) (*ExtClusterClient, error) {
-	codec, err := providerconfigv1.NewCodec()
+	codec, err := v1alpha1.NewCodec()
 	if err != nil {
 		return nil, err
 	}
@@ -64,8 +65,8 @@ func (ext *ExtClusterClient) Delete(cluster *clusterv1.Cluster) error {
 	return nil
 }
 
-func (ext *ExtClusterClient) clusterproviderconfig(providerConfig clusterv1.ProviderConfig) (*providerconfigv1.ExtClusterProviderConfig, error) {
-	var config providerconfigv1.ExtClusterProviderConfig
+func (ext *ExtClusterClient) clusterproviderconfig(providerConfig clusterv1.ProviderConfig) (*v1alpha1.ExtClusterProviderConfig, error) {
+	var config v1alpha1.ExtClusterProviderConfig
 	err := ext.providerConfigCodec.DecodeFromProviderConfig(providerConfig, &config)
 	if err != nil {
 		return nil, err
