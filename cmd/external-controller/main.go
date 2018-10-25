@@ -20,9 +20,10 @@ import (
 	"flag"
 
 	"github.com/golang/glog"
+	"github.com/spf13/pflag"
 
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/kubernetes"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	"sigs.k8s.io/cluster-api/pkg/apis"
 	"sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset"
@@ -33,13 +34,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
-	"kubevirt.io/cluster-api-provider-external/cloud/external"
+	"kubevirt.io/cluster-api-provider-external/pkg/external"
 )
 
 func main() {
 	var machineSetupConfigPath = "/etc/machinesetup/machine_setup_configs.yaml"
 
 	flag.StringVar(&machineSetupConfigPath, "machinesetup", machineSetupConfigPath, "path to machine setup config file")
+
+	flag.Set("logtostderr", "true")
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	
 	flag.Parse()
 
 	// Get a config to talk to the apiserver

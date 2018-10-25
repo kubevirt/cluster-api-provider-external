@@ -10,19 +10,24 @@ load(
     "container_bundle",
     container_repositories = "repositories",
 )
+
+config_setting(
+    name = "release",
+    values = {"define": "release=true"},
+)
+
+container_bundle(
+    name = "cluster_api_external_provider_images",
+    images = {
+        "index.docker.io/kubevirt/cluster-api-external-provider:latest": "//cmd/external-controller:cluster_api_external_provider_image",
+    },
+)
+
 load("@io_bazel_rules_docker//contrib:push-all.bzl", "docker_push")
 
 docker_push(
     name = "push_images",
     bundle = select({
-        "//cluster/k8s-1.10.4:cluster_provider_k8s_1_10_4": "//cluster/k8s-1.10.4:noderecovery_images",
-        "//cluster/os-3.10.0:cluster_provider_os_3_10_0": "//cluster/os-3.10.0:noderecovery_images",
+        ":release": ":cluster_api_external_provider_images",
     }),
-)
-
-container_bundle(
-    name = "controller_images",
-    images = {
-        "docker.io/cluster-api-provider-ext:devel": "//cmd/external-controller:controller_image",
-    },
 )

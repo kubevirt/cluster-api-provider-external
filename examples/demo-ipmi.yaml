@@ -6,7 +6,7 @@ spec:
     providerConfig:
       value:
         apiVersion: "externalproviderconfig/v1alpha1"
-        kind: "ExtClusterProviderConfig"
+        kind: "ExternalClusterProviderConfig"
         project: "demo"
 ---
 apiVersion: "cluster.k8s.io/v1alpha1"
@@ -22,7 +22,7 @@ spec:
   providerConfig:
     value:
       apiVersion: "externalproviderconfig/v1alpha1"
-      kind: "ExtMachineProviderConfig"
+      kind: "ExternalMachineProviderConfig"
       roles:
       - worker
       zone: "fenced"
@@ -42,7 +42,7 @@ spec:
   providerConfig:
     value:
       apiVersion: "externalproviderconfig/v1alpha1"
-      kind: "ExtMachineProviderConfig"
+      kind: "ExternalMachineProviderConfig"
       roles:
       - worker
       zone: "fenced"
