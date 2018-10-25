@@ -17,47 +17,78 @@ limitations under the License.
 package main
 
 import (
-	"log"
-
 	"flag"
 
+	"github.com/golang/glog"
+
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/client-go/kubernetes"
+
 	"sigs.k8s.io/cluster-api/pkg/apis"
-	"sigs.k8s.io/cluster-api/pkg/controller"
+	"sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset"
+	clustercontroller "sigs.k8s.io/cluster-api/pkg/controller/cluster"
+	machinecontroller "sigs.k8s.io/cluster-api/pkg/controller/machine"
+	nodecontroller "sigs.k8s.io/cluster-api/pkg/controller/node"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+
+	"kubevirt.io/cluster-api-provider-external/cloud/external"
 )
 
 func main() {
+	var machineSetupConfigPath = "/etc/machinesetup/machine_setup_configs.yaml"
+
+	flag.StringVar(&machineSetupConfigPath, "machinesetup", machineSetupConfigPath, "path to machine setup config file")
 	flag.Parse()
 
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
-		log.Fatal(err)
+		glog.Fatal(err)
 	}
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, manager.Options{})
 	if err != nil {
-		log.Fatal(err)
+		glog.Fatal(err)
 	}
 
-	log.Printf("Registering Components.")
+	glog.Info("Registering Components")
 
 	// Setup Scheme for all resources
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Fatal(err)
+		glog.Fatal(err)
 	}
 
-	// Setup all Controllers
-	if err := controller.AddToManager(mgr); err != nil {
-		log.Fatal(err)
+	clusterClient, err := clientset.NewForConfig(cfg)
+	if err != nil {
+		panic(err)
 	}
 
-	log.Printf("Starting the Cmd.")
+	// Setup cluster controller
+	clusterActuator, err := external.NewClusterActuator(clusterClient)
+	if err != nil {
+		panic(err)
+	}
+	clustercontroller.AddWithActuator(mgr, clusterActuator)
+
+	kubeClient, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		panic(err)
+	}
+	// Setup machine controller
+	machineActuator, err := external.NewMachineActuator(kubeClient, clusterClient, machineSetupConfigPath)
+	if err != nil {
+		panic(err)
+	}
+	machinecontroller.AddWithActuator(mgr, machineActuator)
+
+	// Setup node controller
+	nodecontroller.Add(mgr)
+
+	glog.Info("Starting the manager")
 
 	// Start the Cmd
-	log.Fatal(mgr.Start(signals.SetupSignalHandler()))
+	glog.Fatal(mgr.Start(signals.SetupSignalHandler()))
 }

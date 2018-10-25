@@ -21,12 +21,10 @@ import (
 	"testing"
 
 	"github.com/golang/glog"
-	"github.com/kubernetes-incubator/apiserver-builder/pkg/controller"
 
 	"kubevirt.io/cluster-api-provider-external/cloud/external"
 	"kubevirt.io/cluster-api-provider-external/cloud/external/machinesetup"
 	configv1 "kubevirt.io/cluster-api-provider-external/cloud/external/providerconfig/v1alpha1"
-	machineoptions "kubevirt.io/cluster-api-provider-external/cmd/external-controller/machine-controller-app/options"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"

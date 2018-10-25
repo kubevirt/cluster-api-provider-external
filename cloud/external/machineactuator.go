@@ -19,7 +19,6 @@ package external
 import (
 	//	"errors"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/golang/glog"
@@ -29,16 +28,14 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	batchv1client "k8s.io/client-go/kubernetes/typed/batch/v1"
-	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	kubescheme "k8s.io/client-go/kubernetes/scheme"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 
-	clustercommon "sigs.k8s.io/cluster-api/pkg/apis/cluster/common"
 	clusterv1 "sigs.k8s.io/cluster-api/pkg/apis/cluster/v1alpha1"
-	clusterclient "sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset/typed/cluster/v1alpha1"
+	clusterclient "sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset"
 	"sigs.k8s.io/cluster-api/pkg/errors"
 
 	"kubevirt.io/cluster-api-provider-external/cloud/external/machinesetup"
@@ -46,12 +43,6 @@ import (
 )
 
 const (
-	BootstrapLabelKey = "bootstrap"
-
-	ProjectAnnotationKey = "ext-project"
-	ZoneAnnotationKey    = "ext-zone"
-	NameAnnotationKey    = "ext-name"
-
 	// This file is a yaml that will be used to create the machine-setup configmap on the machine controller.
 	// It contains the supported machine configurations along with the startup scripts and OS image paths that correspond to each supported configuration.
 	MachineSetupConfigsFilename = "machine_setup_configs.yaml"
@@ -66,243 +57,115 @@ const (
 	noEventAction     = ""
 )
 
-func init() {
-	actuator, err := NewMachineActuator(MachineActuatorParams{})
-	if err != nil {
-		glog.Fatalf("Error creating cluster provisioner for 'external' : %v", err)
-	}
-	clustercommon.RegisterClusterProvisioner(ProviderName, actuator)
-}
-
-type ExtClientMachineSetupConfigGetter interface {
+type ExternalClientMachineSetupConfigGetter interface {
 	GetMachineSetupConfig() (machinesetup.MachineSetupConfig, error)
 }
 
-type Instance struct {
-	Name   string
-	Labels map[string]string
-}
-
-type ExtClient struct {
+type ExternalClient struct {
 	providerConfigCodec      *v1alpha1.ExtProviderConfigCodec
-	scheme                   *runtime.Scheme
-	v1Alpha1Client           clusterclient.ClusterV1alpha1Interface
-	jobsClient               batchv1client.BatchV1Interface
-	coreClient               corev1client.CoreV1Interface
-	machineSetupConfigGetter ExtClientMachineSetupConfigGetter
+	clusterclient            clusterclient.Interface
+	kubeclient               kubernetes.Interface
+	machineSetupConfigGetter ExternalClientMachineSetupConfigGetter
 	eventRecorder            record.EventRecorder
 }
 
 type MachineActuatorParams struct {
-	V1Alpha1Client           clusterclient.ClusterV1alpha1Interface
-	ClientSet                *kubernetes.Clientset
-	MachineSetupConfigGetter ExtClientMachineSetupConfigGetter
+	clusterclient            clusterclient.Interface
+	kubeclient               kubernetes.Interface
+	MachineSetupConfigGetter ExternalClientMachineSetupConfigGetter
 	EventRecorder            record.EventRecorder
 }
 
-func NewMachineActuator(params MachineActuatorParams) (*ExtClient, error) {
-	scheme, err := v1alpha1.NewScheme()
-	if err != nil {
-		return nil, err
-	}
-
+func NewMachineActuator(kubeclient kubernetes.Interface, clusterclient clusterclient.Interface, machineSetupConfigPath string) (*ExternalClient, error) {
 	codec, err := v1alpha1.NewCodec()
 	if err != nil {
 		return nil, err
 	}
 
-	var jobsClient batchv1client.BatchV1Interface
-	var coreClient corev1client.CoreV1Interface
-
-	if params.ClientSet != nil {
-		jobsClient = params.ClientSet.BatchV1()
-		coreClient = params.ClientSet.CoreV1()
+	machineSetupConfigGetter, err := machinesetup.NewConfigWatch(machineSetupConfigPath)
+	if err != nil {
+		return nil, err
 	}
 
-	return &ExtClient{
+	glog.V(2).Info("Creating event broadcaster")
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartLogging(glog.Infof)
+	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclient.CoreV1().Events(metav1.NamespaceAll)})
+
+	return &ExternalClient{
 		providerConfigCodec:      codec,
-		scheme:                   scheme,
-		jobsClient:               jobsClient,
-		coreClient:               coreClient,
-		v1Alpha1Client:           params.V1Alpha1Client,
-		machineSetupConfigGetter: params.MachineSetupConfigGetter,
-		eventRecorder:            params.EventRecorder,
+		kubeclient:               kubeclient,
+		clusterclient:            clusterclient,
+		machineSetupConfigGetter: machineSetupConfigGetter,
+		eventRecorder:            eventBroadcaster.NewRecorder(kubescheme.Scheme, corev1.EventSource{Component: "machine-actuator"}),
 	}, nil
 }
 
-func (ext *ExtClient) Create(cluster *clusterv1.Cluster, machine *clusterv1.Machine) error {
-
-	instance, err := ext.instanceIfExists(cluster, machine)
-	if err != nil {
-		return fmt.Errorf("Instance existance check failed: %v", err)
+// Create actuator action powers on the machine
+func (c *ExternalClient) Create(cluster *clusterv1.Cluster, machine *clusterv1.Machine) error {
+	// TODO: add some logic that will avoid running fencing command on the macine
+	// that already has desired state
+	glog.Infof("Power-on machine %s", machine.Name)
+	if _, err := c.executeAction(createEventAction, cluster, machine, false); err != nil {
+		glog.Errorf("Could not fence machine %s: %v", machine.Name, err)
+		return c.handleMachineError(machine, errors.CreateMachine(
+			"error power-on instance: %v", err), createEventAction)
 	}
 
-	if instance == nil {
-		glog.Infof("Creating machine %v", machine.ObjectMeta.Name)
-
-		if _, err := ext.executeAction(createEventAction, cluster, machine, false); err != nil {
-			glog.Errorf("Could not create machine %v: %v\n", machine.ObjectMeta.Name, err)
-			return ext.handleMachineError(machine, errors.CreateMachine(
-				"error creating instance: %v", err), createEventAction)
-		}
-
-		ext.eventRecorder.Eventf(machine, corev1.EventTypeNormal, "Created", "Created Machine %v", machine.ObjectMeta.Name)
-		// If we have a v1Alpha1Client, then annotate the machine so that we
-		// remember exactly what VM we created for it.
-		if ext.v1Alpha1Client != nil {
-			if err := ext.updateAnnotations(cluster, machine); err != nil {
-				glog.Errorf("Could not annotate machine %v: %v\n", machine.ObjectMeta.Name, err)
-				return nil
-			}
-		}
-		glog.Infof("Machine %v created.\n", machine.ObjectMeta.Name)
-
-	} else {
-		glog.Infof("Skipped creating a machine that already exists.\n")
-	}
-
+	c.eventRecorder.Eventf(machine, corev1.EventTypeNormal, "Created", "Power-on Machine %s", machine.Name)
+	glog.Infof("Machine %s fencing operation succeeded", machine.Name)
 	return nil
 }
 
-func (ext *ExtClient) Delete(cluster *clusterv1.Cluster, machine *clusterv1.Machine) error {
-	name := machine.ObjectMeta.Name
+// Delete actuator action powers off the machine
+func (c *ExternalClient) Delete(cluster *clusterv1.Cluster, machine *clusterv1.Machine) error {
+	// TODO: add some logic that will avoid running fencing command on the macine
+	// that already has desired state
 
-	// var name string
-	// if machine.ObjectMeta.Annotations != nil {
-	// 	name = machine.ObjectMeta.Annotations[NameAnnotationKey]
-	// }
-
-	instance, err := ext.instanceIfExists(cluster, machine)
-	if err != nil {
-		return err
+	glog.Infof("Power-off machine %s", machine.Name)
+	if _, err := c.executeAction(deleteEventAction, cluster, machine, true); err != nil {
+		return c.handleMachineError(machine, errors.DeleteMachine(
+			"error power-off instance: %v", err), deleteEventAction)
 	}
 
-	if instance == nil {
-		glog.Infof("Skipped deleting a machine that is already deleted.\n")
-		return nil
-	}
-
-	if _, err := ext.executeAction(deleteEventAction, cluster, machine, true); err != nil {
-		return ext.handleMachineError(machine, errors.DeleteMachine(
-			"error deleting instance: %v", err), deleteEventAction)
-	}
-
-	ext.eventRecorder.Eventf(machine, corev1.EventTypeNormal, "Deleted", "Deleted Machine %v", name)
-
-	return err
-}
-
-func (ext *ExtClient) PostCreate(cluster *clusterv1.Cluster) error {
-	// Ever called?
+	c.eventRecorder.Eventf(machine, corev1.EventTypeNormal, "Deleted", "Power-off Machine %s", machine.Name)
 	return nil
 }
 
-func (ext *ExtClient) PostDelete(cluster *clusterv1.Cluster) error {
-	// Ever called?
+// Update does not run any code
+func (c *ExternalClient) Update(cluster *clusterv1.Cluster, goalMachine *clusterv1.Machine) error {
+	glog.Infof("NOT IMPLEMENTED: update machine %s", goalMachine.Name)
 	return nil
 }
 
-func (ext *ExtClient) Update(cluster *clusterv1.Cluster, goalMachine *clusterv1.Machine) error {
-	if err := ext.update(cluster, goalMachine); err != nil {
-		glog.Errorf("Could not update %v: %v\n", goalMachine.ObjectMeta.Name, err)
-		glog.Errorf("Goal: %v\n", goalMachine)
-		return err
-	}
-	return nil
-}
-
-func (ext *ExtClient) update(cluster *clusterv1.Cluster, goalMachine *clusterv1.Machine) error {
-	// Before updating, do some basic validation of the object first.
-	glog.Infof("Processing %v update.\n", goalMachine.ObjectMeta.Name)
-	goalConfig, err := ext.machineproviderconfig(goalMachine.Spec.ProviderConfig)
-	if err != nil {
-		return ext.handleMachineError(goalMachine,
-			errors.InvalidMachineConfiguration("Cannot unmarshal machine's providerConfig field: %v", err), noEventAction)
-	}
-	if verr := ext.validateMachine(goalMachine, goalConfig); verr != nil {
-		return ext.handleMachineError(goalMachine, verr, noEventAction)
-	}
-
-	glog.Infof("Checking %v status\n", goalMachine.ObjectMeta.Name)
-	status, err := ext.instanceStatus(goalMachine)
-	if err != nil {
-		return err
-	}
-
-	currentMachine := (*clusterv1.Machine)(status)
-	if currentMachine == nil {
-		instance, err := ext.instanceIfExists(cluster, goalMachine)
-		if err != nil {
-			return err
-		}
-		if instance != nil && instance.Labels[BootstrapLabelKey] != "" {
-			glog.Infof("Populating current state for bootstrap machine %v", goalMachine.ObjectMeta.Name)
-			return ext.updateAnnotations(cluster, goalMachine)
-		} else {
-			return fmt.Errorf("Cannot retrieve current state to update machine %v", goalMachine.ObjectMeta.Name)
-		}
-	}
-
-	currentConfig, err := ext.machineproviderconfig(currentMachine.Spec.ProviderConfig)
-	if err != nil {
-		return ext.handleMachineError(currentMachine, errors.InvalidMachineConfiguration(
-			"Cannot unmarshal machine's providerConfig field: %v", err), noEventAction)
-	}
-
-	if !ext.requiresUpdate(currentMachine, goalMachine) {
-		glog.Infof("No update to %v required\n", goalMachine.ObjectMeta.Name)
-		return nil
-	}
-
-	glog.Infof("Performing %v update\n", goalMachine.ObjectMeta.Name)
-	if isMaster(currentConfig.Roles) {
-		// glog.Infof("Doing an in-place upgrade for master.\n")
-		// err = gce.updateMasterInplace(cluster, currentMachine, goalMachine)
-		// if err != nil {
-		glog.Errorf("In-place master update failed: %v", err)
-		// }
-	} else {
-		glog.Infof("re-creating machine %s for update.", currentMachine.ObjectMeta.Name)
-		err = ext.Delete(cluster, currentMachine)
-		if err != nil {
-			glog.Errorf("delete machine %s for update failed: %v", currentMachine.ObjectMeta.Name, err)
-		} else {
-			err = ext.Create(cluster, goalMachine)
-			if err != nil {
-				glog.Errorf("create machine %s for update failed: %v", goalMachine.ObjectMeta.Name, err)
-			}
-		}
-	}
-
-	if err != nil {
-		return err
-	}
-	return ext.updateInstanceStatus(goalMachine)
-}
-
-func (ext *ExtClient) Exists(cluster *clusterv1.Cluster, machine *clusterv1.Machine) (bool, error) {
-	i, err := ext.instanceIfExists(cluster, machine)
-	if err != nil {
+// Exists returns true, if machine is power-on
+func (c *ExternalClient) Exists(cluster *clusterv1.Cluster, machine *clusterv1.Machine) (bool, error) {
+	glog.Infof("Checking if machine %s is power-on", machine.Name)
+	if _, err := c.executeAction(checkEventAction, cluster, machine, true); err != nil {
+		// TODO: we need to get output from the job
+		glog.Infof("Machine %s not found: %v", machine.ObjectMeta.Name, err)
 		return false, err
 	}
-	return (i != nil), err
+
+	glog.Infof("Machine %s has status power-on", machine.Name)
+	return true, nil
 }
 
-func (ext *ExtClient) executeAction(command string, cluster *clusterv1.Cluster, machine *clusterv1.Machine, doWait bool) (*string, error) {
-	machineConfig, err := ext.machineproviderconfig(machine.Spec.ProviderConfig)
+func (c *ExternalClient) executeAction(command string, cluster *clusterv1.Cluster, machine *clusterv1.Machine, doWait bool) (*string, error) {
+	machineConfig, err := c.machineproviderconfig(machine.Spec.ProviderConfig)
 	zone := machineConfig.Zone
 	if err != nil {
-		return nil, ext.handleMachineError(machine,
+		return nil, c.handleMachineError(machine,
 			errors.InvalidMachineConfiguration("Cannot unmarshal machine's providerConfig field: %v", err), noEventAction)
 	}
 
-	clusterConfig, err := ext.providerConfigCodec.ClusterProviderFromProviderConfig(cluster.Spec.ProviderConfig)
+	clusterConfig, err := c.providerConfigCodec.ClusterProviderFromProviderConfig(cluster.Spec.ProviderConfig)
 	if err != nil {
-		return nil, ext.handleMachineError(machine,
+		return nil, c.handleMachineError(machine,
 			errors.InvalidMachineConfiguration("Cannot unmarshal cluster's providerConfig field: %v", err), noEventAction)
 	}
 
-	err, primitives := ext.chooseCRUDConfig(clusterConfig, machine)
+	err, primitives := c.chooseCRUDConfig(clusterConfig, machine)
 	if err != nil {
 		return nil, err
 	}
@@ -319,7 +182,7 @@ func (ext *ExtClient) executeAction(command string, cluster *clusterv1.Cluster, 
 	}
 
 	err = wait.ExponentialBackoff(backoff, func() (bool, error) {
-		j, err := ext.jobsClient.Jobs(zone).Create(job)
+		j, err := c.kubeclient.BatchV1().Jobs(zone).Create(job)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			// Retry it as errors writing to the API server are common
 			//util.JsonLogObject("Bad Job", job)
@@ -335,7 +198,7 @@ func (ext *ExtClient) executeAction(command string, cluster *clusterv1.Cluster, 
 	}
 
 	if doWait {
-		if err := ext.waitForJob(job.Name, job.Namespace, -1); err != nil {
+		if err := c.waitForJob(job.Name, job.Namespace, -1); err != nil {
 			glog.Errorf("Job %v error: %v", job.Name, err)
 			return nil, err
 		}
@@ -345,9 +208,9 @@ func (ext *ExtClient) executeAction(command string, cluster *clusterv1.Cluster, 
 	return &job.Name, nil
 }
 
-func (ext *ExtClient) waitForJob(jobName string, namespace string, retries int) error {
+func (c *ExternalClient) waitForJob(jobName string, namespace string, retries int) error {
 
-	job, err := ext.jobsClient.Jobs(namespace).Get(jobName, metav1.GetOptions{})
+	job, err := c.kubeclient.BatchV1().Jobs(namespace).Get(jobName, metav1.GetOptions{})
 	glog.Infof("Waiting %d times for job %v: %v", retries, job.Name, err)
 
 	for lpc := 0; lpc < retries || retries < 0; lpc++ {
@@ -373,7 +236,7 @@ func (ext *ExtClient) waitForJob(jobName string, namespace string, retries int) 
 		time.Sleep(5 * time.Second)
 
 		options := metav1.GetOptions{ResourceVersion: job.ObjectMeta.ResourceVersion}
-		job, err = ext.jobsClient.Jobs(namespace).Get(job.ObjectMeta.Name, options)
+		job, err = c.kubeclient.BatchV1().Jobs(namespace).Get(job.ObjectMeta.Name, options)
 	}
 
 	return fmt.Errorf("Job %v in progress", job.Name)
@@ -399,9 +262,9 @@ func (ext *ExtClient) waitForJob(jobName string, namespace string, retries int) 
 // 	Message string `json:"message,omitempty" protobuf:"bytes,6,opt,name=message"`
 // }
 
-func (ext *ExtClient) chooseCRUDConfig(clusterConfig *v1alpha1.ExtClusterProviderConfig, machine *clusterv1.Machine) (error, *v1alpha1.CRUDConfig) {
+func (c *ExternalClient) chooseCRUDConfig(clusterConfig *v1alpha1.ExtClusterProviderConfig, machine *clusterv1.Machine) (error, *v1alpha1.CRUDConfig) {
 	labelThreshold := -1
-	machineConfig, err := ext.machineproviderconfig(machine.Spec.ProviderConfig)
+	machineConfig, err := c.machineproviderconfig(machine.Spec.ProviderConfig)
 	if err != nil {
 		glog.Infof("Could not unpack machine provider config for %v: %v", machine.ObjectMeta.Name, err)
 		return err, nil
@@ -418,7 +281,7 @@ func (ext *ExtClient) chooseCRUDConfig(clusterConfig *v1alpha1.ExtClusterProvide
 	// Next try the cluster config
 	for _, cfg := range clusterConfig.CRUDPrimitives {
 		if len(cfg.NodeSelector) > labelThreshold {
-			err, nodes := ext.ListNodes(cfg.NodeSelector)
+			err, nodes := c.ListNodes(cfg.NodeSelector)
 			if err == nil && nodeInList(machine.ObjectMeta.Name, nodes) {
 				chosen = &cfg
 				labelThreshold = len(cfg.NodeSelector)
@@ -437,7 +300,7 @@ func (ext *ExtClient) chooseCRUDConfig(clusterConfig *v1alpha1.ExtClusterProvide
 		Roles:    machineConfig.Roles,
 		Versions: machine.Spec.Versions,
 	}
-	machineSetupConfigs, err := ext.machineSetupConfigGetter.GetMachineSetupConfig()
+	machineSetupConfigs, err := c.machineSetupConfigGetter.GetMachineSetupConfig()
 	if err != nil {
 		glog.Infof("No machine setup config: %v", err)
 		return err, nil
@@ -458,93 +321,7 @@ func (ext *ExtClient) chooseCRUDConfig(clusterConfig *v1alpha1.ExtClusterProvide
 	return fmt.Errorf("No valid config for %v", machine.ObjectMeta.Name), nil
 }
 
-func isMaster(roles []v1alpha1.MachineRole) bool {
-	for _, r := range roles {
-		if r == v1alpha1.MasterRole {
-			return true
-		}
-	}
-	return false
-}
-
-func (ext *ExtClient) updateAnnotations(cluster *clusterv1.Cluster, machine *clusterv1.Machine) error {
-	machineConfig, err := ext.machineproviderconfig(machine.Spec.ProviderConfig)
-	name := machine.ObjectMeta.Name
-	zone := machineConfig.Zone
-	if err != nil {
-		return ext.handleMachineError(machine,
-			errors.InvalidMachineConfiguration("Cannot unmarshal machine's providerConfig field: %v", err), noEventAction)
-	}
-
-	clusterConfig, err := ext.providerConfigCodec.ClusterProviderFromProviderConfig(cluster.Spec.ProviderConfig)
-	project := clusterConfig.Project
-	if err != nil {
-		return ext.handleMachineError(machine,
-			errors.InvalidMachineConfiguration("Cannot unmarshal cluster's providerConfig field: %v", err), noEventAction)
-	}
-
-	if machine.ObjectMeta.Annotations == nil {
-		machine.ObjectMeta.Annotations = make(map[string]string)
-	}
-	machine.ObjectMeta.Annotations[ProjectAnnotationKey] = project
-	machine.ObjectMeta.Annotations[ZoneAnnotationKey] = zone
-	machine.ObjectMeta.Annotations[NameAnnotationKey] = name
-	_, err = ext.v1Alpha1Client.Machines(machine.Namespace).Update(machine)
-	if err != nil {
-		return err
-	}
-	err = ext.updateInstanceStatus(machine)
-	return err
-}
-
-// The two machines differ in a way that requires an update
-func (ext *ExtClient) requiresUpdate(a *clusterv1.Machine, b *clusterv1.Machine) bool {
-	// Do not want status changes. Do want changes that impact machine provisioning
-	return !reflect.DeepEqual(a.Spec.ObjectMeta, b.Spec.ObjectMeta) ||
-		!reflect.DeepEqual(a.Spec.ProviderConfig, b.Spec.ProviderConfig) ||
-		!reflect.DeepEqual(a.Spec.Versions, b.Spec.Versions) ||
-		a.ObjectMeta.Name != b.ObjectMeta.Name
-}
-
-// Gets the instance represented by the given machine
-func (ext *ExtClient) instanceIfExists(cluster *clusterv1.Cluster, machine *clusterv1.Machine) (*Instance, error) {
-	identifyingMachine := machine
-
-	if machine.ObjectMeta.Name == "" {
-		return nil, nil
-	}
-	// Try to use the last saved status locating the machine
-	// in case instance details have changed
-	status, err := ext.instanceStatus(machine)
-	if err != nil {
-		return nil, fmt.Errorf("status failed: %v", err)
-	}
-
-	if status != nil {
-		identifyingMachine = (*clusterv1.Machine)(status)
-	}
-
-	// Get the VM via specified location and name
-	if _, err := ext.machineproviderconfig(identifyingMachine.Spec.ProviderConfig); err != nil {
-		return nil, fmt.Errorf("provider config failed: %v", err)
-	}
-
-	// clusterConfig, err := ext.providerConfigCodec.ClusterProviderFromProviderConfig(cluster.Spec.ProviderConfig)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	glog.Infof("Checking if machine %v exists", machine.ObjectMeta.Name)
-	if _, err := ext.executeAction(checkEventAction, cluster, machine, true); err != nil {
-		glog.Infof("Machine %v not found: %v", machine.ObjectMeta.Name, err)
-		return nil, nil
-	}
-
-	glog.Infof("Machine %v exists", machine.ObjectMeta.Name)
-	return &Instance{Name: identifyingMachine.ObjectMeta.Name}, nil
-}
-
-func (ext *ExtClient) ListNodes(selector map[string]string) (error, []corev1.Node) {
+func (c *ExternalClient) ListNodes(selector map[string]string) (error, []corev1.Node) {
 
 	labelSelector := labels.SelectorFromSet(selector).String()
 	listOptions := metav1.ListOptions{
@@ -554,42 +331,35 @@ func (ext *ExtClient) ListNodes(selector map[string]string) (error, []corev1.Nod
 		// 	Limit int64 `json:"limit,omitempty" protobuf:"varint,7,opt,name=limit"`
 	}
 
-	nodes, err := ext.coreClient.Nodes().List(listOptions)
+	nodes, err := c.kubeclient.CoreV1().Nodes().List(listOptions)
 
 	return err, nodes.Items
 }
 
-func (ext *ExtClient) machineproviderconfig(providerConfig clusterv1.ProviderConfig) (*v1alpha1.ExtMachineProviderConfig, error) {
+func (c *ExternalClient) machineproviderconfig(providerConfig clusterv1.ProviderConfig) (*v1alpha1.ExtMachineProviderConfig, error) {
 	var config v1alpha1.ExtMachineProviderConfig
-	err := ext.providerConfigCodec.DecodeFromProviderConfig(providerConfig, &config)
+	err := c.providerConfigCodec.DecodeFromProviderConfig(providerConfig, &config)
 	if err != nil {
 		return nil, err
 	}
 	return &config, nil
 }
 
-func (ext *ExtClient) validateMachine(machine *clusterv1.Machine, config *v1alpha1.ExtMachineProviderConfig) *errors.MachineError {
-	// if machine.Spec.Versions.Kubelet == "" {
-	// 	return errors.InvalidMachineConfiguration("spec.versions.kubelet can't be empty")
-	// }
-	return nil
-}
-
-// If the ExtClient has a client for updating Machine objects, this will set
+// If the ExternalClient has a client for updating Machine objects, this will set
 // the appropriate reason/message on the Machine.Status. If not, such as during
 // cluster installation, it will operate as a no-op. It also returns the
 // original error for convenience, so callers can do "return handleMachineError(...)".
-func (ext *ExtClient) handleMachineError(machine *clusterv1.Machine, err *errors.MachineError, eventAction string) error {
-	if ext.v1Alpha1Client != nil {
+func (c *ExternalClient) handleMachineError(machine *clusterv1.Machine, err *errors.MachineError, eventAction string) error {
+	if c.clusterclient != nil {
 		reason := err.Reason
 		message := err.Message
 		machine.Status.ErrorReason = &reason
 		machine.Status.ErrorMessage = &message
-		ext.v1Alpha1Client.Machines(machine.Namespace).UpdateStatus(machine)
+		c.clusterclient.ClusterV1alpha1().Machines(machine.Namespace).UpdateStatus(machine)
 	}
 
 	if eventAction != noEventAction {
-		ext.eventRecorder.Eventf(machine, corev1.EventTypeWarning, "Failed"+eventAction, "%v", err.Reason)
+		c.eventRecorder.Eventf(machine, corev1.EventTypeWarning, "Failed"+eventAction, "%v", err.Reason)
 	}
 
 	glog.Errorf("Machine error: %v", err.Message)

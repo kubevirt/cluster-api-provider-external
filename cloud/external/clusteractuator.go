@@ -17,57 +17,44 @@ limitations under the License.
 package external
 
 import (
-	"fmt"
-
 	"github.com/golang/glog"
 
 	clusterv1 "sigs.k8s.io/cluster-api/pkg/apis/cluster/v1alpha1"
-	clusterclient "sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset/typed/cluster/v1alpha1"
+	clusterclient "sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset"
 
 	"kubevirt.io/cluster-api-provider-external/cloud/external/providerconfig/v1alpha1"
 )
 
-type ExtClusterClient struct {
-	clusterClient       clusterclient.ClusterInterface
+type ExternalClusterActuator struct {
+	clusterClient       clusterclient.Interface
 	providerConfigCodec *v1alpha1.ExtProviderConfigCodec
 }
 
-type ClusterActuatorParams struct {
-	ClusterClient clusterclient.ClusterInterface
-}
-
-func NewClusterActuator(params ClusterActuatorParams) (*ExtClusterClient, error) {
+func NewClusterActuator(clusterclient clusterclient.Interface) (*ExternalClusterActuator, error) {
 	codec, err := v1alpha1.NewCodec()
 	if err != nil {
 		return nil, err
 	}
 
-	return &ExtClusterClient{
-		clusterClient:       params.ClusterClient,
+	return &ExternalClusterActuator{
+		clusterClient:       clusterclient,
 		providerConfigCodec: codec,
 	}, nil
 }
 
-func (ext *ExtClusterClient) Reconcile(cluster *clusterv1.Cluster) error {
-	glog.Infof("Reconciling cluster %v.", cluster.Name)
-	clusterConfig, err := ext.clusterproviderconfig(cluster.Spec.ProviderConfig)
-	if err != nil {
-		return fmt.Errorf("No config found for %v: %v", cluster.Name, err)
-	}
-	if clusterConfig == nil {
-		return fmt.Errorf("No config found for %v", cluster.Name)
-	}
+func (a *ExternalClusterActuator) Reconcile(cluster *clusterv1.Cluster) error {
+	glog.Infof("NOT IMPLEMENTED: reconciling cluster %s", cluster.Name)
 	return nil
 }
 
-func (ext *ExtClusterClient) Delete(cluster *clusterv1.Cluster) error {
-	glog.Infof("Deleting cluster %v.", cluster.Name)
+func (a *ExternalClusterActuator) Delete(cluster *clusterv1.Cluster) error {
+	glog.Infof("NOT IMPLEMENTED: deleting cluster %v.", cluster.Name)
 	return nil
 }
 
-func (ext *ExtClusterClient) clusterproviderconfig(providerConfig clusterv1.ProviderConfig) (*v1alpha1.ExtClusterProviderConfig, error) {
+func (a *ExternalClusterActuator) clusterproviderconfig(providerConfig clusterv1.ProviderConfig) (*v1alpha1.ExtClusterProviderConfig, error) {
 	var config v1alpha1.ExtClusterProviderConfig
-	err := ext.providerConfigCodec.DecodeFromProviderConfig(providerConfig, &config)
+	err := a.providerConfigCodec.DecodeFromProviderConfig(providerConfig, &config)
 	if err != nil {
 		return nil, err
 	}

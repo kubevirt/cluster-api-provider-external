@@ -2,12 +2,12 @@
 
 
 [[projects]]
-  digest = "1:05a0051c277d6f51a8026a23c7b9f3ae650f9f3b82e5d4f91a97f05fcbac10ff"
+  digest = "1:e3317b0081b67d520cc9756fb2b533b7a5d449c09d0571af76a0a9423bb1b608"
   name = "cloud.google.com/go"
   packages = ["compute/metadata"]
   pruneopts = "T"
-  revision = "dfffe386c33fb24c34ee501e5723df5b97b98514"
-  version = "v0.30.0"
+  revision = "debcad1964693daf8ef4bc06292d7e828e075130"
+  version = "v0.31.0"
 
 [[projects]]
   digest = "1:9f42202ac457c462ad8bb9642806d275af9ab4850cf0b1960b9c6f083d4a309a"
@@ -62,11 +62,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:29342f636f875ca5478b6fd926212c37d89ae3c858ab3ec4680ee1eed7d32945"
+  digest = "1:8f3489cb7352125027252a6517757cbd1706523119f1e14e20741ae8d2f70428"
   name = "github.com/golang/groupcache"
   packages = ["lru"]
   pruneopts = "T"
-  revision = "6f2cf27854a4a29e3811b0371547be335d411b8b"
+  revision = "c65c006176ff7ff98bb916961c7abbc6b0afc0aa"
 
 [[projects]]
   digest = "1:a2ecb56e5053d942aafc86738915fb94c9131bac848c543b8b6764365fd69080"
@@ -165,14 +165,6 @@
   version = "v1.1.5"
 
 [[projects]]
-  digest = "1:8262e3107286b0c69c68baa93b252901620bd3bfbc21ea8fdee02223f7a7d727"
-  name = "github.com/kubernetes-incubator/apiserver-builder"
-  packages = ["pkg/controller"]
-  pruneopts = "T"
-  revision = "83b2c178a8f935a738cebbf41aa5b8af1f19162d"
-  version = "v0.2-alpha.0"
-
-[[projects]]
   branch = "master"
   digest = "1:fc2b04b0069d6b10bdef96d278fe20c345794009685ed3c8c7f1a6dc023eefec"
   name = "github.com/mattbaird/jsonpatch"
@@ -269,15 +261,15 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:56a43b9f51e5c5ea734e866b82d57c842b022c795a0611ff5f57f3d7c47de45d"
+  digest = "1:77f54f6503831d121702e88abc62be16dfdba1ac6c5d73cc62ed0c55e130b097"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
   pruneopts = "T"
-  revision = "0c41d7ab0a0ee717d4590a44bcb987dfd9e183eb"
+  revision = "74cb1d3d52f4c01cbfb44c1b50d204462f3124c7"
 
 [[projects]]
   branch = "master"
-  digest = "1:1244f7fbc53a2b9c4174e7e1e62ed5cad5f2f42c67abeac2400a7a72c6c76643"
+  digest = "1:0c04b2a25e05e53a014eb3329cd9e3759bee811e333cf6db2ec1819d6c2dad31"
   name = "golang.org/x/net"
   packages = [
     "context",
@@ -288,7 +280,7 @@
     "idna",
   ]
   pruneopts = "T"
-  revision = "04a2e542c03f1d053ab3e4d6e5abcd4b66e2be8e"
+  revision = "9b4f9f5ad5197c79fd623a3638e70d8b26cef344"
 
 [[projects]]
   branch = "master"
@@ -306,14 +298,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:7a6ad3bc804e228bbb6968ec4f80546d64c914b957df0f612542a88054e8bb31"
+  digest = "1:e14a47671a5bb6d5dff4f1d7b5f2b7ff96895db8304b164d1dac15a6ba2773da"
   name = "golang.org/x/sys"
   packages = [
     "unix",
     "windows",
   ]
   pruneopts = "T"
-  revision = "8a28ead16f52c8aaeffbf79239b251dfdf6c4f96"
+  revision = "d989b31c87461dc8ab2f1cac6792814e27fadea9"
 
 [[projects]]
   digest = "1:6164911cb5e94e8d8d5131d646613ff82c14f5a8ce869de2f6d80d9889df8c5a"
@@ -424,7 +416,6 @@
   digest = "1:e2035d60919705a125feeb8b13926383aff8817634b2c4550743c19ca21f3b08"
   name = "k8s.io/apimachinery"
   packages = [
-    "pkg/api/equality",
     "pkg/api/errors",
     "pkg/api/meta",
     "pkg/api/resource",
@@ -456,7 +447,6 @@
     "pkg/util/json",
     "pkg/util/mergepatch",
     "pkg/util/net",
-    "pkg/util/rand",
     "pkg/util/runtime",
     "pkg/util/sets",
     "pkg/util/strategicpatch",
@@ -550,11 +540,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:9f141a13bf5b0019bec73c9ff7559cd04c54b5e3cc11276b7762950be7d16705"
+  digest = "1:a897d46db059d19e9a9d7123efaf99b02d9de1ba238fce0a1d774d546383c13e"
   name = "k8s.io/kube-openapi"
   packages = ["pkg/util/proto"]
   pruneopts = "T"
-  revision = "90b54e673cf4f8ba61a75ad6ef90a69e8da13568"
+  revision = "96e8bb74ecdddb93a882ef95d2b8ec49e93168ee"
 
 [[projects]]
   digest = "1:25e4c5e17fbb1e8071e08902a68e7704af43c9186adb8993049e26c6543168e2"
@@ -566,10 +556,9 @@
     "pkg/client/clientset_generated/clientset",
     "pkg/client/clientset_generated/clientset/scheme",
     "pkg/client/clientset_generated/clientset/typed/cluster/v1alpha1",
-    "pkg/controller",
-    "pkg/controller/machinedeployment",
-    "pkg/controller/machinedeployment/util",
-    "pkg/controller/machineset",
+    "pkg/controller/cluster",
+    "pkg/controller/error",
+    "pkg/controller/machine",
     "pkg/controller/node",
     "pkg/controller/noderefutil",
     "pkg/errors",
@@ -618,7 +607,6 @@
   input-imports = [
     "github.com/ghodss/yaml",
     "github.com/golang/glog",
-    "github.com/kubernetes-incubator/apiserver-builder/pkg/controller",
     "github.com/spf13/cobra",
     "k8s.io/api/batch/v1",
     "k8s.io/api/core/v1",
@@ -628,23 +616,21 @@
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
     "k8s.io/apimachinery/pkg/runtime/serializer",
-    "k8s.io/apimachinery/pkg/runtime/serializer/json",
     "k8s.io/apimachinery/pkg/util/wait",
     "k8s.io/client-go/kubernetes",
-    "k8s.io/client-go/kubernetes/typed/batch/v1",
+    "k8s.io/client-go/kubernetes/scheme",
     "k8s.io/client-go/kubernetes/typed/core/v1",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/rest",
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/record",
     "sigs.k8s.io/cluster-api/pkg/apis",
-    "sigs.k8s.io/cluster-api/pkg/apis/cluster/common",
     "sigs.k8s.io/cluster-api/pkg/apis/cluster/v1alpha1",
     "sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset",
-    "sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset/typed/cluster/v1alpha1",
-    "sigs.k8s.io/cluster-api/pkg/controller",
+    "sigs.k8s.io/cluster-api/pkg/controller/cluster",
+    "sigs.k8s.io/cluster-api/pkg/controller/machine",
+    "sigs.k8s.io/cluster-api/pkg/controller/node",
     "sigs.k8s.io/cluster-api/pkg/errors",
-    "sigs.k8s.io/cluster-api/pkg/util",
     "sigs.k8s.io/controller-runtime/pkg/client/config",
     "sigs.k8s.io/controller-runtime/pkg/manager",
     "sigs.k8s.io/controller-runtime/pkg/runtime/signals",
