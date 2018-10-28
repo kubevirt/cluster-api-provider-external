@@ -25,66 +25,22 @@ import (
 
 // ExternalMachineProviderConfig provides machine configuration struct
 type ExternalMachineProviderConfig struct {
-	metav1.TypeMeta `json:",inline"`
+	metav1.TypeMeta   `json:",inline"`
 
-	// A list of roles for this Machine to use.
-	Roles []MachineRole `json:"roles,omitempty"`
-
-	Zone        string `json:"zone"`
-	MachineType string `json:"machineType"`
-
-	// The name of the OS to be installed on the machine.
-	OS             string      `json:"os"`
-	Disks          []Disk      `json:"disks"`
-	CRUDPrimitives *CRUDConfig `json:"crudPrimitives"`
-}
-
-// The MachineRole indicates the purpose of the Machine, and will determine
-// what software and configuration will be used when provisioning and managing
-// the Machine. A single Machine may have more than one role, and the list and
-// definitions of supported roles is expected to evolve over time.
-//
-// Currently, only two roles are supported: Master and Node. In the future, we
-// expect user needs to drive the evolution and granularity of these roles,
-// with new additions accommodating common cluster patterns, like dedicated
-// etcd Machines.
-//
-//                 +-----------------------+------------------------+
-//                 | Master present        | Master absent          |
-// +---------------+-----------------------+------------------------|
-// | Node present: | Install control plane | Join the cluster as    |
-// |               | and be schedulable    | just a node            |
-// |---------------+-----------------------+------------------------|
-// | Node absent:  | Install control plane | Invalid configuration  |
-// |               | and be unschedulable  |                        |
-// +---------------+-----------------------+------------------------+
-type MachineRole string
-
-const (
-	MasterRole MachineRole = "Master"
-	NodeRole   MachineRole = "Node"
-)
-
-type Disk struct {
-	InitializeParams DiskInitializeParams `json:"initializeParams"`
-}
-
-type DiskInitializeParams struct {
-	DiskSizeGb int64  `json:"diskSizeGb"`
-	DiskType   string `json:"diskType"`
+	FencingConfig *FencingConfig `json:"fencingConfig"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // ExternalClusterProviderConfig provides machine configuration struct
 type ExternalClusterProviderConfig struct {
-	metav1.TypeMeta `json:",inline"`
+	metav1.TypeMeta   `json:",inline"`
 
-	Project        string       `json:"project"`
-	CRUDPrimitives []CRUDConfig `json:"crudPrimitives"`
+	Project        string          `json:"project"`
+	FencingConfigs []FencingConfig `json:"fencingConfigs"`
 }
 
-type CRUDConfig struct {
+type FencingConfig struct {
 	metav1.ObjectMeta `json:",inline"`
 
 	// Query that specifies which node(s) this config applies to
@@ -94,7 +50,7 @@ type CRUDConfig struct {
 	// Container that handles machine operations
 	Container *v1.Container `json:"container"`
 
-	// Container that handles machine operations
+	// Volumes that must be mounted to the fencing container
 	Volumes []v1.Volume `json:"volumes"`
 
 	// Optional command to be used instead of the default when
@@ -108,10 +64,6 @@ type CRUDConfig struct {
 	// Optional command to be used instead of the default when
 	// handling machine Delete operations (power-off/deprovisioning)
 	DeleteArgs []string `json:"deleteArgs,omitempty"`
-
-	// Optional command to be used instead of the default when
-	// handling machine Reboot operations
-	RebootArgs []string `json:"rebootArgs,omitempty"`
 
 	// How Secrets and DynamicConfig should be passed to the
 	// container: ([env], cli)

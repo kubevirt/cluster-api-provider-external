@@ -6,19 +6,11 @@ items:
     labels:
       set: master
   spec:
-    versions:
-      kubelet: 1.9.4
-      controlPlane: 1.9.4
     providerConfig:
       value:
         apiVersion: "extproviderconfig/v1alpha1"
-        kind: "ExtMachineProviderConfig"
-        roles:
-        - Master
-        zone: "$ZONE"
-        machineType: "n1-standard-2"
-        os: "ubuntu-1604-lts"
-      	crudPrimitives:
+        kind: "ExternalMachineProviderConfig"
+      	fencingConfig:
       	  container:
       	    name: baremetal-fencing
           	image: quay.io/beekhof/fence-agents:latest
@@ -35,18 +27,11 @@ items:
     labels:
       set: node
   spec:
-    versions:
-      kubelet: 1.9.4
     providerConfig:
       value:
         apiVersion: "extproviderconfig/v1alpha1"
-        kind: "ExtMachineProviderConfig"
-        roles:
-        - Node
-        zone: "$ZONE"
-        machineType: "n1-standard-1"
-        os: "ubuntu-1604-lts"
-        crudPrimitives:
+        kind: "ExternalMachineProviderConfig"
+        fencingConfig:
           container:
             name: baremetal-fencing
             image: quay.io/beekhof/fence-agents:latest
@@ -68,7 +53,7 @@ items:
     providerConfig:
       value:
         apiVersion: "extproviderconfig/v1alpha1"
-        kind: "ExtMachineProviderConfig"
+        kind: "ExternalMachineProviderConfig"
         roles:
         - Node
         zone: "$ZONE"

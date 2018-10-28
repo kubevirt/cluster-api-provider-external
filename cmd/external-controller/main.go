@@ -44,7 +44,7 @@ func main() {
 
 	flag.Set("logtostderr", "true")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	
+
 	flag.Parse()
 
 	// Get a config to talk to the apiserver
@@ -83,7 +83,7 @@ func main() {
 		panic(err)
 	}
 	// Setup machine controller
-	machineActuator, err := external.NewMachineActuator(kubeClient, clusterClient, machineSetupConfigPath)
+	machineActuator, err := external.NewMachineActuator(kubeClient, clusterClient)
 	if err != nil {
 		panic(err)
 	}

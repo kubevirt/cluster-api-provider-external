@@ -27,7 +27,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	kubescheme "k8s.io/client-go/kubernetes/scheme"
@@ -38,51 +37,31 @@ import (
 	clusterclient "sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset"
 	"sigs.k8s.io/cluster-api/pkg/errors"
 
-	"kubevirt.io/cluster-api-provider-external/pkg/external/machinesetup"
 	"kubevirt.io/cluster-api-provider-external/pkg/apis/providerconfig/v1alpha1"
-)
-
-const (
-	// This file is a yaml that will be used to create the machine-setup configmap on the machine controller.
-	// It contains the supported machine configurations along with the startup scripts and OS image paths that correspond to each supported configuration.
-	MachineSetupConfigsFilename = "machine_setup_configs.yaml"
-	ProviderName                = "external"
 )
 
 const (
 	checkEventAction  = "Status"
 	createEventAction = "Create"
 	deleteEventAction = "Delete"
-	rebootEventAction = "Reboot"
 	noEventAction     = ""
 )
 
-type ExternalClientMachineSetupConfigGetter interface {
-	GetMachineSetupConfig() (machinesetup.MachineSetupConfig, error)
-}
-
 type ExternalClient struct {
-	providerConfigCodec      *v1alpha1.ExternalProviderConfigCodec
-	clusterclient            clusterclient.Interface
-	kubeclient               kubernetes.Interface
-	machineSetupConfigGetter ExternalClientMachineSetupConfigGetter
-	eventRecorder            record.EventRecorder
+	providerConfigCodec *v1alpha1.ExternalProviderConfigCodec
+	clusterclient       clusterclient.Interface
+	kubeclient          kubernetes.Interface
+	eventRecorder       record.EventRecorder
 }
 
 type MachineActuatorParams struct {
-	clusterclient            clusterclient.Interface
-	kubeclient               kubernetes.Interface
-	MachineSetupConfigGetter ExternalClientMachineSetupConfigGetter
-	EventRecorder            record.EventRecorder
+	clusterclient clusterclient.Interface
+	kubeclient    kubernetes.Interface
+	EventRecorder record.EventRecorder
 }
 
-func NewMachineActuator(kubeclient kubernetes.Interface, clusterclient clusterclient.Interface, machineSetupConfigPath string) (*ExternalClient, error) {
+func NewMachineActuator(kubeclient kubernetes.Interface, clusterclient clusterclient.Interface) (*ExternalClient, error) {
 	codec, err := v1alpha1.NewCodec()
-	if err != nil {
-		return nil, err
-	}
-
-	machineSetupConfigGetter, err := machinesetup.NewConfigWatch(machineSetupConfigPath)
 	if err != nil {
 		return nil, err
 	}
@@ -93,11 +72,10 @@ func NewMachineActuator(kubeclient kubernetes.Interface, clusterclient clustercl
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclient.CoreV1().Events(metav1.NamespaceAll)})
 
 	return &ExternalClient{
-		providerConfigCodec:      codec,
-		kubeclient:               kubeclient,
-		clusterclient:            clusterclient,
-		machineSetupConfigGetter: machineSetupConfigGetter,
-		eventRecorder:            eventBroadcaster.NewRecorder(kubescheme.Scheme, corev1.EventSource{Component: "machine-actuator"}),
+		providerConfigCodec: codec,
+		kubeclient:          kubeclient,
+		clusterclient:       clusterclient,
+		eventRecorder:       eventBroadcaster.NewRecorder(kubescheme.Scheme, corev1.EventSource{Component: "machine-actuator"}),
 	}, nil
 }
 
@@ -152,25 +130,18 @@ func (c *ExternalClient) Exists(cluster *clusterv1.Cluster, machine *clusterv1.M
 }
 
 func (c *ExternalClient) executeAction(command string, cluster *clusterv1.Cluster, machine *clusterv1.Machine, doWait bool) (*string, error) {
-	machineConfig, err := c.machineproviderconfig(machine.Spec.ProviderConfig)
-	zone := machineConfig.Zone
-	if err != nil {
-		return nil, c.handleMachineError(machine,
-			errors.InvalidMachineConfiguration("Cannot unmarshal machine's providerConfig field: %v", err), noEventAction)
-	}
-
 	clusterConfig, err := c.providerConfigCodec.ClusterProviderFromProviderConfig(cluster.Spec.ProviderConfig)
 	if err != nil {
 		return nil, c.handleMachineError(machine,
 			errors.InvalidMachineConfiguration("Cannot unmarshal cluster's providerConfig field: %v", err), noEventAction)
 	}
 
-	err, primitives := c.chooseCRUDConfig(clusterConfig, machine)
+	fencingConfig, err := c.chooseFencingConfig(clusterConfig, machine)
 	if err != nil {
 		return nil, err
 	}
 
-	err, job := createCrudJob(command, machine, primitives)
+	fencingJob, err := createFencingJob(command, machine, fencingConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -180,16 +151,15 @@ func (c *ExternalClient) executeAction(command string, cluster *clusterv1.Cluste
 		Factor:   1.2,
 		Steps:    5,
 	}
-
 	err = wait.ExponentialBackoff(backoff, func() (bool, error) {
-		j, err := c.kubeclient.BatchV1().Jobs(zone).Create(job)
+		j, err := c.kubeclient.BatchV1().Jobs(machine.Namespace).Create(fencingJob)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			// Retry it as errors writing to the API server are common
 			//util.JsonLogObject("Bad Job", job)
 			return false, err
 		}
-		job = j
-		glog.Infof("Job %v running for %s.", job.Name, machine.ObjectMeta.Name)
+		fencingJob = j
+		glog.Infof("Job %v running for %s.", fencingJob.Name, machine.Name)
 		return true, nil
 	})
 
@@ -198,14 +168,14 @@ func (c *ExternalClient) executeAction(command string, cluster *clusterv1.Cluste
 	}
 
 	if doWait {
-		if err := c.waitForJob(job.Name, job.Namespace, -1); err != nil {
-			glog.Errorf("Job %v error: %v", job.Name, err)
+		if err := c.waitForJob(fencingJob.Name, fencingJob.Namespace, -1); err != nil {
+			glog.Errorf("Job %v error: %v", fencingJob.Name, err)
 			return nil, err
 		}
 	}
 
-	glog.Infof("Job %v complete", job.Name)
-	return &job.Name, nil
+	glog.Infof("Job %v complete", fencingJob.Name)
+	return &fencingJob.Name, nil
 }
 
 func (c *ExternalClient) waitForJob(jobName string, namespace string, retries int) error {
@@ -227,9 +197,8 @@ func (c *ExternalClient) waitForJob(jobName string, namespace string, retries in
 				} else if condition.Type == batchv1.JobComplete {
 					if job.Status.Succeeded > 0 {
 						return nil
-					} else {
-						return fmt.Errorf("Job %v failed: %v", job.Name, condition.Message)
 					}
+					return fmt.Errorf("Job %v failed: %v", job.Name, condition.Message)
 				}
 			}
 		}
@@ -242,98 +211,31 @@ func (c *ExternalClient) waitForJob(jobName string, namespace string, retries in
 	return fmt.Errorf("Job %v in progress", job.Name)
 }
 
-// JobCondition describes current state of a job.
-// type JobCondition struct {
-// 	// Type of job condition, Complete or Failed.
-// 	Type JobConditionType `json:"type" protobuf:"bytes,1,opt,name=type,casttype=JobConditionType"`
-// 	// Status of the condition, one of True, False, Unknown.
-// 	Status v1.ConditionStatus `json:"status" protobuf:"bytes,2,opt,name=status,casttype=k8s.io/api/core/v1.ConditionStatus"`
-// 	// Last time the condition was checked.
-// 	// +optional
-// 	LastProbeTime metav1.Time `json:"lastProbeTime,omitempty" protobuf:"bytes,3,opt,name=lastProbeTime"`
-// 	// Last time the condition transit from one status to another.
-// 	// +optional
-// 	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty" protobuf:"bytes,4,opt,name=lastTransitionTime"`
-// 	// (brief) reason for the condition's last transition.
-// 	// +optional
-// 	Reason string `json:"reason,omitempty" protobuf:"bytes,5,opt,name=reason"`
-// 	// Human readable message indicating details about last transition.
-// 	// +optional
-// 	Message string `json:"message,omitempty" protobuf:"bytes,6,opt,name=message"`
-// }
-
-func (c *ExternalClient) chooseCRUDConfig(clusterConfig *v1alpha1.ExternalClusterProviderConfig, machine *clusterv1.Machine) (error, *v1alpha1.CRUDConfig) {
-	labelThreshold := -1
+func (c *ExternalClient) chooseFencingConfig(clusterConfig *v1alpha1.ExternalClusterProviderConfig, machine *clusterv1.Machine) (*v1alpha1.FencingConfig, error) {
 	machineConfig, err := c.machineproviderconfig(machine.Spec.ProviderConfig)
 	if err != nil {
-		glog.Infof("Could not unpack machine provider config for %v: %v", machine.ObjectMeta.Name, err)
-		return err, nil
+		glog.Warningf("Could not unpack machine provider config for %s: %v", machine.Name, err)
+		return nil, err
 	}
 
-	// Prefer primitives defined as part of the Machine object over those
+	// Prefer fencing config defined as part of the Machine object over those
 	// defined in the the Cluster
-	chosen := machineConfig.CRUDPrimitives
-	if chosen != nil {
-		glog.Infof("Using inline %v primitives for machine %v", chosen.ObjectMeta.Name, machine.ObjectMeta.Name)
-		return nil, chosen
+	if machineConfig.FencingConfig != nil {
+		glog.Infof("Choose machine fencing configuration for machine %s", machine.Name)
+		return machineConfig.FencingConfig, nil
 	}
 
 	// Next try the cluster config
-	for _, cfg := range clusterConfig.CRUDPrimitives {
-		if len(cfg.NodeSelector) > labelThreshold {
-			err, nodes := c.ListNodes(cfg.NodeSelector)
-			if err == nil && nodeInList(machine.ObjectMeta.Name, nodes) {
-				chosen = &cfg
-				labelThreshold = len(cfg.NodeSelector)
+	for _, cfg := range clusterConfig.FencingConfigs {
+		for _, nodeName := range cfg.NodeSelector {
+			if nodeName == machine.Name {
+				glog.Infof("Choose cluster fencing configuration for machine %s", machine.Name)
+				return &cfg, nil
 			}
 		}
 	}
 
-	if chosen != nil {
-		glog.Infof("Chose %v primitives for machine %v from list", chosen.ObjectMeta.Name, machine.ObjectMeta.Name)
-		return nil, chosen
-	}
-
-	// Now try machine templates
-	configParams := &machinesetup.ConfigParams{
-		OS:       machineConfig.OS,
-		Roles:    machineConfig.Roles,
-		Versions: machine.Spec.Versions,
-	}
-	machineSetupConfigs, err := c.machineSetupConfigGetter.GetMachineSetupConfig()
-	if err != nil {
-		glog.Infof("No machine setup config: %v", err)
-		return err, nil
-	}
-
-	meta, err := machineSetupConfigs.GetMetadata(configParams)
-	if err != nil {
-		glog.Infof("No matching machine setup: %v", err)
-	} else {
-		chosen = meta.CRUDPrimitives
-	}
-
-	if chosen != nil {
-		glog.Infof("Chose %v primitives for machine %v matching: %v", chosen.ObjectMeta.Name, machine.ObjectMeta.Name, configParams)
-		return nil, chosen
-	}
-
-	return fmt.Errorf("No valid config for %v", machine.ObjectMeta.Name), nil
-}
-
-func (c *ExternalClient) ListNodes(selector map[string]string) (error, []corev1.Node) {
-
-	labelSelector := labels.SelectorFromSet(selector).String()
-	listOptions := metav1.ListOptions{
-		LabelSelector:        labelSelector,
-		IncludeUninitialized: false,
-		// 	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty" protobuf:"varint,5,opt,name=timeoutSeconds"`
-		// 	Limit int64 `json:"limit,omitempty" protobuf:"varint,7,opt,name=limit"`
-	}
-
-	nodes, err := c.kubeclient.CoreV1().Nodes().List(listOptions)
-
-	return err, nodes.Items
+	return nil, fmt.Errorf("No valid config for %v", machine.Name)
 }
 
 func (c *ExternalClient) machineproviderconfig(providerConfig clusterv1.ProviderConfig) (*v1alpha1.ExternalMachineProviderConfig, error) {

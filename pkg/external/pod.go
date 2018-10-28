@@ -35,16 +35,7 @@ const (
 	secretsDir = "/etc/fencing/secrets"
 )
 
-func nodeInList(name string, nodes []v1.Node) bool {
-	for _, node := range nodes {
-		if node.Name == name {
-			return true
-		}
-	}
-	return false
-}
-
-func createCrudJob(action string, machine *clusterv1.Machine, method *v1alpha1.CRUDConfig) (error, *v1batch.Job) {
+func createFencingJob(action string, machine *clusterv1.Machine, fencingConfig *v1alpha1.FencingConfig) (*v1batch.Job, error) {
 	// Create a Job with a container for each mechanism
 
 	// TODO: Leverage podtemplates?
@@ -52,26 +43,23 @@ func createCrudJob(action string, machine *clusterv1.Machine, method *v1alpha1.C
 	volumeMap := map[string]v1.Volume{}
 	containers := []v1.Container{}
 
-	labels := map[string]string{"foo": "bar"} // TODO: req.JobLabels(method.Name)
+	labels := map[string]string{"kubevirt.io/cluster-api-external-provider": action}
 
-	container := method.Container.DeepCopy()
+	container := fencingConfig.Container.DeepCopy()
 
-	if err, cmd := getContainerCommand(container, method, action, machine.ObjectMeta.Name); err != nil {
-		return fmt.Errorf("Method %s aborted: %v", action, err), nil
-	} else if len(cmd) > 0 {
-		container.Args = cmd
+	fencingCommand, err := getFencingCommand(container, fencingConfig, action, machine.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get fencing command: %v", err)
 	}
+	container.Args = fencingCommand
 
-	if err, env := getContainerEnv(method, action, machine.ObjectMeta.Name, secretsDir); err != nil {
-		return fmt.Errorf("Method %s aborted: %v", action, err), nil
-	} else {
-		container.Env = env
+	env, err := getContainerEnv(fencingConfig, action, machine.Name, secretsDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set environment variables: %v", err)
 	}
+	container.Env = env
 
-	// logrus.Infof("template: %v", method.Container)
-	// logrus.Infof("instance: %v", container)
-
-	for _, v := range processSecrets(method, container) {
+	for _, v := range processSecrets(fencingConfig, container) {
 		if _, ok := volumeMap[v.Name]; !ok {
 			volumeMap[v.Name] = v
 		}
@@ -80,8 +68,8 @@ func createCrudJob(action string, machine *clusterv1.Machine, method *v1alpha1.C
 	containers = append(containers, *container)
 
 	volumes := []v1.Volume{}
-	if method.Volumes != nil {
-		volumes = method.Volumes
+	if fencingConfig.Volumes != nil {
+		volumes = fencingConfig.Volumes
 	}
 
 	for _, v := range volumeMap {
@@ -93,7 +81,7 @@ func createCrudJob(action string, machine *clusterv1.Machine, method *v1alpha1.C
 
 	// Parallel Jobs with a fixed completion count
 	// - https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/
-	return nil, &v1batch.Job{
+	return &v1batch.Job{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Job",
 			APIVersion: "batch/v1",
@@ -111,7 +99,7 @@ func createCrudJob(action string, machine *clusterv1.Machine, method *v1alpha1.C
 			Labels: labels,
 		},
 		Spec: v1batch.JobSpec{
-			BackoffLimit:          method.Retries,
+			BackoffLimit:          fencingConfig.Retries,
 			Parallelism:           &numContainers,
 			Completions:           &numContainers,
 			ActiveDeadlineSeconds: &timeout,
@@ -125,7 +113,7 @@ func createCrudJob(action string, machine *clusterv1.Machine, method *v1alpha1.C
 				},
 			},
 		},
-	}
+	}, nil
 }
 
 func volumeNameMap(r rune) rune {
@@ -141,9 +129,9 @@ func volumeNameMap(r rune) rune {
 	}
 }
 
-func processSecrets(method *v1alpha1.CRUDConfig, c *v1.Container) []v1.Volume {
+func processSecrets(fencingConfig *v1alpha1.FencingConfig, c *v1.Container) []v1.Volume {
 	volumes := []v1.Volume{}
-	for key, s := range method.Secrets {
+	for key, s := range fencingConfig.Secrets {
 
 		// volumeName must contain only a-z, 0-9, and -
 		volumeName := strings.Map(volumeNameMap, fmt.Sprintf("secret-%s", key))
@@ -176,82 +164,82 @@ func processSecrets(method *v1alpha1.CRUDConfig, c *v1.Container) []v1.Volume {
 	return volumes
 }
 
-func getContainerCommand(c *v1.Container, m *v1alpha1.CRUDConfig, primitive string, target string) (error, []string) {
-	command := []string{}
+func getFencingCommand(c *v1.Container, fencingConfig *v1alpha1.FencingConfig, action string, target string) ([]string, error) {
+	fencingCommand := []string{}
 	if c.Args != nil {
-		command = c.Args
+		fencingCommand = c.Args
 	}
 
-	switch primitive {
+	switch action {
 	case createEventAction:
-		command = append(command, m.CreateArgs...)
+		fencingCommand = append(fencingCommand, fencingConfig.CreateArgs...)
 	case deleteEventAction:
-		command = append(command, m.DeleteArgs...)
-	case rebootEventAction:
-		command = append(command, m.RebootArgs...)
+		fencingCommand = append(fencingCommand, fencingConfig.DeleteArgs...)
 	case checkEventAction:
-		command = append(command, m.CheckArgs...)
+		fencingCommand = append(fencingCommand, fencingConfig.CheckArgs...)
+	default:
+		return fencingCommand, fmt.Errorf("unsupported fencing action for the machine %s", target)
 	}
 
-	if m.ArgumentFormat == "env" {
+	if fencingConfig.ArgumentFormat == "env" {
 
-		if len(m.PassTargetAs) == 0 {
-			// No other way to pass it in, just append to the existing command
-			command = append(command, target)
+		if len(fencingConfig.PassTargetAs) == 0 {
+			// No other way to pass it in, just append to the existing fencingCommand
+			fencingCommand = append(fencingCommand, target)
 		}
 
-	} else if m.ArgumentFormat == "cli" {
-		for name, value := range m.Config {
-			command = append(command, fmt.Sprintf("--%s", name))
-			command = append(command, value)
+	} else if fencingConfig.ArgumentFormat == "cli" {
+		for name, value := range fencingConfig.Config {
+			fencingCommand = append(fencingCommand, fmt.Sprintf("--%s", name))
+			fencingCommand = append(fencingCommand, value)
 		}
 
-		for _, dc := range m.DynamicConfig {
-			command = append(command, fmt.Sprintf("--%s", dc.Field))
+		for _, dc := range fencingConfig.DynamicConfig {
+			fencingCommand = append(fencingCommand, fmt.Sprintf("--%s", dc.Field))
 			if value, ok := dc.Lookup(target); ok {
-				command = append(command, value)
+				fencingCommand = append(fencingCommand, value)
 			} else {
-				return fmt.Errorf("No value of '%s' found for '%s'", dc.Field, target), []string{}
+				return fencingCommand, fmt.Errorf("no value of '%s' found for '%s'", dc.Field, target)
 			}
 		}
 
-		if len(m.PassActionAs) > 0 {
-			command = append(command, fmt.Sprintf("--%s", m.PassActionAs))
-			command = append(command, primitive)
+		if len(fencingConfig.PassActionAs) > 0 {
+			fencingCommand = append(fencingCommand, fmt.Sprintf("--%s", fencingConfig.PassActionAs))
+			fencingCommand = append(fencingCommand, action)
 		}
 
-		if len(m.PassTargetAs) > 0 {
-			command = append(command, fmt.Sprintf("--%s", m.PassTargetAs))
-			command = append(command, target)
+		if len(fencingConfig.PassTargetAs) > 0 {
+			fencingCommand = append(fencingCommand, fmt.Sprintf("--%s", fencingConfig.PassTargetAs))
+			fencingCommand = append(fencingCommand, target)
 		}
 
 	} else {
-		return fmt.Errorf("ArgumentFormat %s not supported", m.ArgumentFormat), []string{}
+		return fencingCommand, fmt.Errorf("argumentFormat %s not supported", fencingConfig.ArgumentFormat)
 	}
 
-	glog.Infof("%s %v command: %v", m.Container.Name, primitive, command)
-	return nil, command
+	glog.Infof("%s %v fencingCommand: %v", fencingConfig.Container.Name, action, fencingCommand)
+	return fencingCommand, nil
 }
 
-func getContainerEnv(m *v1alpha1.CRUDConfig, primitive string, target string, secretsDir string) (error, []v1.EnvVar) {
+func getContainerEnv(fencingConfig *v1alpha1.FencingConfig, action string, target string, secretsDir string) ([]v1.EnvVar, error) {
 	env := []v1.EnvVar{
 		{
 			Name:  "ARG_FORMAT",
-			Value: m.ArgumentFormat,
+			Value: fencingConfig.ArgumentFormat,
 		},
 	}
 
-	for _, val := range m.Container.Env {
+	for _, val := range fencingConfig.Container.Env {
 		env = append(env, val)
 	}
 
-	if m.ArgumentFormat == "cli" {
-		return nil, env
+	if fencingConfig.ArgumentFormat == "cli" {
+		return env, nil
 	}
 
-	if m.ArgumentFormat == "env" {
+	if fencingConfig.ArgumentFormat == "env" {
 		glog.Infof("Adding env vars")
-		for name, value := range m.Config {
+		for name, value := range fencingConfig.Config {
 			glog.Infof("Adding %v=%v", name, value)
 			env = append(env, v1.EnvVar{
 				Name:  name,
@@ -259,8 +247,8 @@ func getContainerEnv(m *v1alpha1.CRUDConfig, primitive string, target string, se
 			})
 		}
 
-		glog.Infof("Adding dynamic env vars: %v", m.DynamicConfig)
-		for _, dc := range m.DynamicConfig {
+		glog.Infof("Adding dynamic env vars: %v", fencingConfig.DynamicConfig)
+		for _, dc := range fencingConfig.DynamicConfig {
 			if value, ok := dc.Lookup(target); ok {
 				glog.Infof("Adding %v=%v (dynamic)", dc.Field, value)
 				env = append(env, v1.EnvVar{
@@ -269,25 +257,25 @@ func getContainerEnv(m *v1alpha1.CRUDConfig, primitive string, target string, se
 				})
 			} else {
 				glog.Errorf("not adding %v (dynamic)", dc.Field)
-				return fmt.Errorf("No value of '%s' found for '%s'", dc.Field, target), nil
+				return nil, fmt.Errorf("no value of '%s' found for '%s'", dc.Field, target)
 			}
 		}
 
-		if len(m.PassTargetAs) > 0 {
+		if len(fencingConfig.PassTargetAs) > 0 {
 			env = append(env, v1.EnvVar{
-				Name:  m.PassTargetAs,
+				Name:  fencingConfig.PassTargetAs,
 				Value: target,
 			})
 		}
 
-		if len(m.PassActionAs) > 0 {
+		if len(fencingConfig.PassActionAs) > 0 {
 			env = append(env, v1.EnvVar{
-				Name:  m.PassActionAs,
-				Value: primitive,
+				Name:  fencingConfig.PassActionAs,
+				Value: action,
 			})
 		}
 
-		return nil, env
+		return env, nil
 	}
-	return fmt.Errorf("ArgumentFormat %s not supported", m.ArgumentFormat), env
+	return env, fmt.Errorf("argumentFormat %s not supported", fencingConfig.ArgumentFormat)
 }
