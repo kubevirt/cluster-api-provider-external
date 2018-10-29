@@ -19,3 +19,6 @@ bazel-cluster-api-provider-gcp
 bazel-genfiles
 bazel-out
 bazel-testlogs
+
+# Output directory
+_out/
