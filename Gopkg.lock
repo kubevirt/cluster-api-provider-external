@@ -149,14 +149,6 @@
   version = "v0.3.6"
 
 [[projects]]
-  digest = "1:870d441fe217b8e689d7949fef6e43efbc787e50f200cb1e70dbca9204a1d6be"
-  name = "github.com/inconshreveable/mousetrap"
-  packages = ["."]
-  pruneopts = "T"
-  revision = "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75"
-  version = "v1.0"
-
-[[projects]]
   digest = "1:5d713dbcad44f3358fec51fd5573d4f733c02cac5a40dcb177787ad5ffe9272f"
   name = "github.com/json-iterator/go"
   packages = ["."]
@@ -213,14 +205,6 @@
   version = "v2.0.1"
 
 [[projects]]
-  digest = "1:8be8b3743fc9795ec21bbd3e0fc28ff6234018e1a269b0a7064184be95ac13e0"
-  name = "github.com/spf13/cobra"
-  packages = ["."]
-  pruneopts = "T"
-  revision = "ef82de70bb3f60c65fb8eebacbb2d122ef517385"
-  version = "v0.0.3"
-
-[[projects]]
   digest = "1:0f775ea7a72e30d5574267692aaa9ff265aafd15214a7ae7db26bc77f2ca04dc"
   name = "github.com/spf13/pflag"
   packages = ["."]
@@ -261,15 +245,15 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:e32809cb6d0aab5d7dbaf76520a812ebea29eb11d3019ca0dd83807edb9884ba"
+  digest = "1:0cb68eb483c425d90b7c278f139d96e8d0b54153fff6c46b329300fa6a339c5e"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
   pruneopts = "T"
-  revision = "85e1b3f9139abd58575d728a509643924e3b2ebf"
+  revision = "45a5f77698d342a8c2ef8423abdf0ba6880b008a"
 
 [[projects]]
   branch = "master"
-  digest = "1:0c04b2a25e05e53a014eb3329cd9e3759bee811e333cf6db2ec1819d6c2dad31"
+  digest = "1:318f8c765f1f78bd5554451078c4c6426560ba37162a10c44e2506cceb7f0d9b"
   name = "golang.org/x/net"
   packages = [
     "context",
@@ -280,7 +264,7 @@
     "idna",
   ]
   pruneopts = "T"
-  revision = "9b4f9f5ad5197c79fd623a3638e70d8b26cef344"
+  revision = "c44066c5c816ec500d459a2a324a753f78531ae0"
 
 [[projects]]
   branch = "master"
@@ -298,14 +282,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:e14a47671a5bb6d5dff4f1d7b5f2b7ff96895db8304b164d1dac15a6ba2773da"
+  digest = "1:8e6c1fddbee6ef8cfd1e4c368874d974f085b5424fae5c1a00ec5e23c71e7c40"
   name = "golang.org/x/sys"
   packages = [
     "unix",
     "windows",
   ]
   pruneopts = "T"
-  revision = "d989b31c87461dc8ab2f1cac6792814e27fadea9"
+  revision = "95b1ffbd15a57cc5abb3f04402b9e8ec0016a52c"
 
 [[projects]]
   digest = "1:6164911cb5e94e8d8d5131d646613ff82c14f5a8ce869de2f6d80d9889df8c5a"
@@ -540,11 +524,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a897d46db059d19e9a9d7123efaf99b02d9de1ba238fce0a1d774d546383c13e"
+  digest = "1:caa3024f192ba974d63bfecd19ba7400138baf7a9d8be50cf64cab25bdad219f"
   name = "k8s.io/kube-openapi"
   packages = ["pkg/util/proto"]
   pruneopts = "T"
-  revision = "96e8bb74ecdddb93a882ef95d2b8ec49e93168ee"
+  revision = "0d1aeffe1c68f49accbd05c185ae534fe1372a3f"
 
 [[projects]]
   digest = "1:25e4c5e17fbb1e8071e08902a68e7704af43c9186adb8993049e26c6543168e2"
@@ -568,7 +552,7 @@
   revision = "70dec6624df750599dbf25b206020dca640fc761"
 
 [[projects]]
-  digest = "1:4c3be496e0e0977b54e265fea184b57e9928fed12a1a14687c04b5d42e044abc"
+  digest = "1:f3951866d3013de73a3f1bc63e4706d872c67f68c997b886f243015afcecbab0"
   name = "sigs.k8s.io/controller-runtime"
   packages = [
     "pkg/cache",
@@ -598,21 +582,19 @@
     "pkg/webhook/types",
   ]
   pruneopts = "T"
-  revision = "53fc44b56078cd095b11bd44cfa0288ee4cf718f"
-  version = "v0.1.4"
+  revision = "a67a5036fa19242e7ca874420224bc26753b811f"
+  version = "v0.1.6"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/ghodss/yaml",
     "github.com/golang/glog",
-    "github.com/spf13/cobra",
+    "github.com/spf13/pflag",
     "k8s.io/api/batch/v1",
     "k8s.io/api/core/v1",
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
-    "k8s.io/apimachinery/pkg/labels",
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
     "k8s.io/apimachinery/pkg/runtime/serializer",

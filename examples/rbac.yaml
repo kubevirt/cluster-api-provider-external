@@ -7,6 +7,29 @@ metadata:
     kubevirt.io: "cluster-api-external-provider"
 rules:
   - apiGroups:
+      - cluster.k8s.io
+    resources:
+      - clusters
+      - machines
+    verbs:
+      - get
+      - list
+      - update
+      - watch
+  - apiGroups:
+      - cluster.k8s.io
+    resources:
+      - machines/status
+    verbs:
+      - update
+  - apiGroups:
+      - ''
+    resources:
+      - nodes
+    verbs:
+      - list
+      - watch
+  - apiGroups:
       - ''
     resources:
       - events
@@ -30,6 +53,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: cluster-api-external-provider
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: "cluster-api-external-provider"
 ---
@@ -46,3 +70,4 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: cluster-api-external-provider
+    namespace: {{.Namespace}}

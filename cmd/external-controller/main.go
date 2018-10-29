@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset"
 	clustercontroller "sigs.k8s.io/cluster-api/pkg/controller/cluster"
 	machinecontroller "sigs.k8s.io/cluster-api/pkg/controller/machine"
-	nodecontroller "sigs.k8s.io/cluster-api/pkg/controller/node"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
@@ -86,7 +85,8 @@ func main() {
 	machinecontroller.AddWithActuator(mgr, machineActuator)
 
 	// Setup node controller
-	nodecontroller.Add(mgr)
+	// TODO: enable when CR subresources available by default
+	// nodecontroller.Add(mgr)
 
 	glog.Info("Starting the manager")
 
