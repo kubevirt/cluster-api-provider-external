@@ -9,7 +9,7 @@ VENDOR_DIR=$REPO_DIR/vendor
 CMD_OUT_DIR=$OUT_DIR/cmd
 TESTS_OUT_DIR=$OUT_DIR/tests
 
-CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-k8s-1.10.4}
+CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-k8s-1.11.0}
 CLUSTER_NUM_NODES=${CLUSTER_NUM_NODES:-1}
 
 # If on a developer setup, expose ocp on 8443, so that the openshift web console can be used (the port is important because of auth redirects)

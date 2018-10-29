@@ -22,3 +22,7 @@ bazel-testlogs
 
 # Output directory
 _out/
+
+# Cluster providers files
+cluster/*/.kubeconfig
+cluster/*/.kubectl

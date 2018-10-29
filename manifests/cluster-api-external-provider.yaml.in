@@ -3,6 +3,8 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: machines.cluster.k8s.io
+  labels:
+    kubevirt.io: "clusterapi-external-provider"
 spec:
   group: cluster.k8s.io
   names:
@@ -19,6 +21,8 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: clusters.cluster.k8s.io
+  labels:
+    kubevirt.io: "clusterapi-external-provider"
 spec:
   group: cluster.k8s.io
   names:
@@ -65,7 +69,7 @@ spec:
         operator: Exists
       containers:
       - name: clusterapi-external-controller
-        image: {{.DockerPrefix}}/clusterapi-external-provider:{{.DockerTag}}
+        image: {{.DockerPrefix}}/cluster-api-external-provider:{{.DockerTag}}
         command:
         - "/usr/bin/external-controller"
         imagePullPolicy: Always
