@@ -89,13 +89,6 @@ func createFencingJob(action string, machine *clusterv1.Machine, fencingConfig *
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%v-job-%v-", machine.ObjectMeta.Name, strings.ToLower(action)),
 			Namespace:    machine.Namespace,
-			// TODO: OwnerReferences: []metav1.OwnerReference{
-			// 	*metav1.NewControllerRef(req, schema.GroupVersionKind{
-			// 		Group:   v1alpha1.SchemeGroupVersion.Group,
-			// 		Version: v1alpha1.SchemeGroupVersion.Version,
-			// 		Kind:    "FencingRequest",
-			// 	}),
-			// },
 			Labels: labels,
 		},
 		Spec: v1batch.JobSpec{
