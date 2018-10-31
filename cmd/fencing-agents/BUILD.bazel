@@ -1,0 +1,76 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importpath = "kubevirt.io/cluster-api-provider-external/cmd/fencing-agents",
+    visibility = ["//visibility:private"],
+    deps = ["//cmd/fencing-agents/cmd:go_default_library"],
+)
+
+go_binary(
+    name = "fencing-agents",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
+
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_bundle",
+    "container_image",
+    container_repositories = "repositories",
+)
+load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
+genrule(
+    name = "fencing-agents-tar",
+    srcs = [
+        "build.sh",
+        "Dockerfile",
+    ],
+    outs = ["fencing_agents.tar"],
+    cmd = "./$(location build.sh) $(location fencing_agents.tar)",
+)
+
+passwd_entry(
+    name = "nonroot_user",
+    home = "/home/fencing-agents",
+    shell = "/bin/bash",
+    uid = 1001,
+    gid = 1001,
+    username = "fencing-agents",
+)
+
+passwd_file(
+    name = "passwd",
+    entries = [
+        ":nonroot_user",
+    ],
+)
+
+pkg_tar(
+    name = "passwd_tar",
+    srcs = [":passwd"],
+    mode = "0644",
+    package_dir = "etc",
+)
+
+container_image(
+    name = "passwd_image",
+    base = "@fedora//image",
+    tars = [":passwd_tar"],
+    user = "fencing-agents",
+    visibility = ["//visibility:private"],
+)
+
+container_image(
+    name = "fencing-agents-image",
+    base = ":passwd_image",
+    files = [":fencing-agents"],
+    tars = [":fencing-agents-tar"],
+    directory = "/usr/bin",
+    entrypoint = ["/usr/bin/fencing-agents"],
+    user = "fencing-agents",
+    visibility = ["//visibility:public"],
+)

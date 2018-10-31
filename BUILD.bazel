@@ -20,6 +20,7 @@ container_bundle(
     name = "cluster_api_external_provider_images",
     images = {
         "index.docker.io/kubevirt/cluster-api-provider-external:latest": "//cmd/external-controller:cluster_api_external_provider_image",
+        "index.docker.io/kubevirt/fencing-agents:latest": "//cmd/fencing-agents:fencing-agents-image",
     },
 )
 
