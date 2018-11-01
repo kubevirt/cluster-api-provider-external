@@ -105,6 +105,11 @@ func (in *ExternalMachineProviderConfig) DeepCopyInto(out *ExternalMachineProvid
 			(*in).DeepCopyInto(*out)
 		}
 	}
+	if in.Roles != nil {
+		in, out := &in.Roles, &out.Roles
+		*out = make([]MachineRole, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
@@ -165,6 +170,11 @@ func (in *FencingConfig) DeepCopyInto(out *FencingConfig) {
 	}
 	if in.DeleteArgs != nil {
 		in, out := &in.DeleteArgs, &out.DeleteArgs
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.RebootArgs != nil {
+		in, out := &in.RebootArgs, &out.RebootArgs
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}

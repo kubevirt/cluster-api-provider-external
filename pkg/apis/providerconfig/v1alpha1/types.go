@@ -21,20 +21,52 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// The MachineRole indicates the purpose of the Machine, and will determine
+// what software and configuration will be used when provisioning and managing
+// the Machine. A single Machine may have more than one role, and the list and
+// definitions of supported roles is expected to evolve over time.
+//
+// Currently, only two roles are supported: Master and Node. In the future, we
+// expect user needs to drive the evolution and granularity of these roles,
+// with new additions accommodating common cluster patterns, like dedicated
+// etcd Machines.
+//
+//                 +-----------------------+------------------------+
+//                 | Master present        | Master absent          |
+// +---------------+-----------------------+------------------------|
+// | Node present: | Install control plane | Join the cluster as    |
+// |               | and be schedulable    | just a node            |
+// |---------------+-----------------------+------------------------|
+// | Node absent:  | Install control plane | Invalid configuration  |
+// |               | and be unschedulable  |                        |
+// +---------------+-----------------------+------------------------+
+
+type MachineRole string
+
+const (
+	MasterRole MachineRole = "Master"
+	NodeRole   MachineRole = "Node"
+)
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // ExternalMachineProviderConfig provides machine configuration struct
 type ExternalMachineProviderConfig struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
 
+	// FencingConfig specify machine power management configuration
 	FencingConfig *FencingConfig `json:"fencingConfig"`
+	// Label give possibility to map between machine to specific configuration under configMap
+	Label string `json:"labels,omitempty"`
+	// Roles specify which role will server machine under the cluster
+	Roles []MachineRole `json:"roles,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // ExternalClusterProviderConfig provides machine configuration struct
 type ExternalClusterProviderConfig struct {
-	metav1.TypeMeta   `json:",inline"`
+	metav1.TypeMeta `json:",inline"`
 
 	Project        string          `json:"project"`
 	FencingConfigs []FencingConfig `json:"fencingConfigs"`
@@ -64,6 +96,10 @@ type FencingConfig struct {
 	// Optional command to be used instead of the default when
 	// handling machine Delete operations (power-off/deprovisioning)
 	DeleteArgs []string `json:"deleteArgs,omitempty"`
+
+	// Optional command to be used instead of the default when
+	// handling machine Update operations (reboot)
+	RebootArgs []string `json:"rebootArgs,omitempty"`
 
 	// How Secrets and DynamicConfig should be passed to the
 	// container: ([env], cli)

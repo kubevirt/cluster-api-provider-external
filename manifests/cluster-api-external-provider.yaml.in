@@ -42,6 +42,17 @@ metadata:
     kubevirt.io: "clusterapi-external-provider"
   name: {{.Namespace}}
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: machine-setup
+  namespace: {{.Namespace}}
+  labels:
+    kubevirt.io: "clusterapi-external-provider"
+data:
+  machine_setup_configs.yaml: |-
+    items: []
+---
 apiVersion: apps/v1beta1
 kind: Deployment
 metadata:
@@ -56,6 +67,7 @@ spec:
       labels:
         kubevirt.io: "clusterapi-external-provider"
     spec:
+      serviceAccountName: clusterapi-external-provider
       tolerations:
       - effect: NoSchedule
         key: node-role.kubernetes.io/master
@@ -72,9 +84,18 @@ spec:
         image: {{.DockerPrefix}}/cluster-api-external-provider:{{.DockerTag}}
         command:
         - "/usr/bin/external-controller"
+        args:	
+        - --machinesetup=/etc/machinesetup/machine_setup_configs.yaml
         imagePullPolicy: Always
+        volumeMounts:	
+        - name: machine-setup	
+          mountPath: /etc/machinesetup
         env:
           - name: NODE_NAME
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
+      volumes:	
+      - name: machine-setup	
+        configMap:	
+          name: machine-setup

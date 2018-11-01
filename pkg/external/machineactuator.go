@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/cluster-api/pkg/errors"
 
 	"kubevirt.io/cluster-api-provider-external/pkg/apis/providerconfig/v1alpha1"
+	"kubevirt.io/cluster-api-provider-external/pkg/external/machinesetup"
 )
 
 const (
@@ -49,19 +50,19 @@ const (
 
 type ExternalClient struct {
 	providerConfigCodec *v1alpha1.ExternalProviderConfigCodec
+	machineSetupConfig  machinesetup.SetupConfig
 	clusterclient       clusterclient.Interface
 	kubeclient          kubernetes.Interface
 	eventRecorder       record.EventRecorder
 }
 
-type MachineActuatorParams struct {
-	clusterclient clusterclient.Interface
-	kubeclient    kubernetes.Interface
-	EventRecorder record.EventRecorder
-}
-
-func NewMachineActuator(kubeclient kubernetes.Interface, clusterclient clusterclient.Interface) (*ExternalClient, error) {
+func NewMachineActuator(kubeclient kubernetes.Interface, clusterclient clusterclient.Interface, machineSetupConfigPath string) (*ExternalClient, error) {
 	codec, err := v1alpha1.NewCodec()
+	if err != nil {
+		return nil, err
+	}
+
+	machineSetupConfig, err := machinesetup.NewSetupConfig(machineSetupConfigPath)
 	if err != nil {
 		return nil, err
 	}
@@ -74,6 +75,7 @@ func NewMachineActuator(kubeclient kubernetes.Interface, clusterclient clustercl
 	return &ExternalClient{
 		providerConfigCodec: codec,
 		kubeclient:          kubeclient,
+		machineSetupConfig:  machineSetupConfig,
 		clusterclient:       clusterclient,
 		eventRecorder:       eventBroadcaster.NewRecorder(kubescheme.Scheme, corev1.EventSource{Component: "machine-actuator"}),
 	}, nil
@@ -130,13 +132,7 @@ func (c *ExternalClient) Exists(cluster *clusterv1.Cluster, machine *clusterv1.M
 }
 
 func (c *ExternalClient) executeAction(command string, cluster *clusterv1.Cluster, machine *clusterv1.Machine, doWait bool) (*string, error) {
-	clusterConfig, err := c.providerConfigCodec.ClusterProviderFromProviderConfig(cluster.Spec.ProviderConfig)
-	if err != nil {
-		return nil, c.handleMachineError(machine,
-			errors.InvalidMachineConfiguration("Cannot unmarshal cluster's providerConfig field: %v", err), noEventAction)
-	}
-
-	fencingConfig, err := c.chooseFencingConfig(clusterConfig, machine)
+	fencingConfig, err := c.chooseFencingConfig(machine)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +207,7 @@ func (c *ExternalClient) waitForJob(jobName string, namespace string, retries in
 	return fmt.Errorf("Job %v in progress", job.Name)
 }
 
-func (c *ExternalClient) chooseFencingConfig(clusterConfig *v1alpha1.ExternalClusterProviderConfig, machine *clusterv1.Machine) (*v1alpha1.FencingConfig, error) {
+func (c *ExternalClient) chooseFencingConfig(machine *clusterv1.Machine) (*v1alpha1.FencingConfig, error) {
 	machineConfig, err := c.machineproviderconfig(machine.Spec.ProviderConfig)
 	if err != nil {
 		glog.Warningf("Could not unpack machine provider config for %s: %v", machine.Name, err)
@@ -225,14 +221,19 @@ func (c *ExternalClient) chooseFencingConfig(clusterConfig *v1alpha1.ExternalClu
 		return machineConfig.FencingConfig, nil
 	}
 
-	// Next try the cluster config
-	for _, cfg := range clusterConfig.FencingConfigs {
-		for _, nodeName := range cfg.NodeSelector {
-			if nodeName == machine.Name {
-				glog.Infof("Choose cluster fencing configuration for machine %s", machine.Name)
-				return &cfg, nil
-			}
-		}
+	machineParams := &machinesetup.MachineParams{
+		Label: machineConfig.Label,
+		Roles: machineConfig.Roles,
+	}
+
+	configMapMachine, err := c.machineSetupConfig.GetConfig(machineParams)
+	if err != nil {
+		return nil, err
+	}
+
+	if configMapMachine != nil {
+		glog.Infof("Choose machine fencing configuration for machine %s from configMap", machine.Name)
+		return configMapMachine.FencingConfig, nil
 	}
 
 	return nil, fmt.Errorf("No valid config for %v", machine.Name)

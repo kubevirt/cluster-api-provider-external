@@ -37,6 +37,9 @@ import (
 )
 
 func main() {
+	var machineSetupConfigPath = "/etc/machinesetup/machine_setup_configs.yaml"
+	flag.StringVar(&machineSetupConfigPath, "machinesetup", machineSetupConfigPath, "path to machine setup config file")
+
 	flag.Set("logtostderr", "true")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 
@@ -78,7 +81,7 @@ func main() {
 		panic(err)
 	}
 	// Setup machine controller
-	machineActuator, err := external.NewMachineActuator(kubeClient, clusterClient)
+	machineActuator, err := external.NewMachineActuator(kubeClient, clusterClient, machineSetupConfigPath)
 	if err != nil {
 		panic(err)
 	}

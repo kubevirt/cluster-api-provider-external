@@ -22,6 +22,7 @@ _kubectl -n clusterapi-external-provider get clusters -o=custom-columns=NAME:.me
 done
 
 _kubectl -n clusterapi-external-provider delete deployment -l 'kubevirt.io=clusterapi-external-provider'
+_kubectl -n clusterapi-external-provider delete configmap -l 'kubevirt.io=clusterapi-external-provider'
 _kubectl -n clusterapi-external-provider delete rs -l 'kubevirt.io=clusterapi-external-provider'
 _kubectl -n clusterapi-external-provider delete pods -l 'kubevirt.io=clusterapi-external-provider'
 _kubectl -n clusterapi-external-provider delete clusterrolebinding -l 'kubevirt.io=clusterapi-external-provider'
