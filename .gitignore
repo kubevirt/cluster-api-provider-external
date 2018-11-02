@@ -19,6 +19,10 @@ bazel-cluster-api-provider-gcp
 bazel-genfiles
 bazel-out
 bazel-testlogs
-		     
 
-vendor
+# Output directory
+_out/
+
+# Cluster providers files
+cluster/*/.kubeconfig
+cluster/*/.kubectl

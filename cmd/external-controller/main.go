@@ -18,51 +18,81 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"os"
 
-	"github.com/kubevirt/cluster-api-provider-external/cmd/external-controller/cluster-controller-app"
-	clusteroptions "github.com/kubevirt/cluster-api-provider-external/cmd/external-controller/cluster-controller-app/options"
-	"github.com/kubevirt/cluster-api-provider-external/cmd/external-controller/machine-controller-app"
-	machineoptions "github.com/kubevirt/cluster-api-provider-external/cmd/external-controller/machine-controller-app/options"
-
+	"github.com/golang/glog"
 	"github.com/spf13/pflag"
-	"k8s.io/apiserver/pkg/util/logs"
-	"sigs.k8s.io/cluster-api/pkg/controller/config"
+
+	"k8s.io/client-go/kubernetes"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+
+	"sigs.k8s.io/cluster-api/pkg/apis"
+	"sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset"
+	clustercontroller "sigs.k8s.io/cluster-api/pkg/controller/cluster"
+	machinecontroller "sigs.k8s.io/cluster-api/pkg/controller/machine"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+
+	"kubevirt.io/cluster-api-provider-external/pkg/external"
 )
 
 func main() {
+	var machineSetupConfigPath = "/etc/machinesetup/machine_setup_configs.yaml"
+	flag.StringVar(&machineSetupConfigPath, "machinesetup", machineSetupConfigPath, "path to machine setup config file")
 
-	fs := pflag.CommandLine
-	var controllerType, machineSetupConfigsPath string
-	fs.StringVar(&controllerType, "controller", controllerType, "specify whether this should run the machine or cluster controller")
-	fs.StringVar(&machineSetupConfigsPath, "machinesetup", machineSetupConfigsPath, "path to machine setup configs file")
-	config.ControllerConfig.AddFlags(pflag.CommandLine)
-	// the following line exists to make glog happy, for more information, see: https://github.com/kubernetes/kubernetes/issues/17162
-	flag.CommandLine.Parse([]string{})
-
-	// Map go flags to pflag
+	flag.Set("logtostderr", "true")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 
-	pflag.Parse()
+	flag.Parse()
 
-	logs.InitLogs()
-	defer logs.FlushLogs()
-
-	if controllerType == "machine" {
-		machineServer := machineoptions.NewMachineControllerServer(machineSetupConfigsPath)
-		if err := machine_controller_app.RunMachineController(machineServer); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to start machine controller. Err: %v\n", err)
-			os.Exit(1)
-		}
-	} else if controllerType == "cluster" {
-		clusterServer := clusteroptions.NewClusterControllerServer()
-		if err := cluster_controller_app.RunClusterController(clusterServer); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to start cluster controller. Err: %v\n", err)
-			os.Exit(1)
-		}
-	} else {
-		fmt.Fprintf(os.Stderr, "Failed to start controller, `controller` flag must be either `machine` or `cluster` but was %v.\n", controllerType)
-		os.Exit(1)
+	// Get a config to talk to the apiserver
+	cfg, err := config.GetConfig()
+	if err != nil {
+		glog.Fatal(err)
 	}
+
+	// Create a new Cmd to provide shared dependencies and start components
+	mgr, err := manager.New(cfg, manager.Options{})
+	if err != nil {
+		glog.Fatal(err)
+	}
+
+	glog.Info("Registering Components")
+
+	// Setup Scheme for all resources
+	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
+		glog.Fatal(err)
+	}
+
+	clusterClient, err := clientset.NewForConfig(cfg)
+	if err != nil {
+		panic(err)
+	}
+
+	// Setup cluster controller
+	clusterActuator, err := external.NewClusterActuator(clusterClient)
+	if err != nil {
+		panic(err)
+	}
+	clustercontroller.AddWithActuator(mgr, clusterActuator)
+
+	kubeClient, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		panic(err)
+	}
+	// Setup machine controller
+	machineActuator, err := external.NewMachineActuator(kubeClient, clusterClient, machineSetupConfigPath)
+	if err != nil {
+		panic(err)
+	}
+	machinecontroller.AddWithActuator(mgr, machineActuator)
+
+	// Setup node controller
+	// TODO: enable when CR subresources available by default
+	// nodecontroller.Add(mgr)
+
+	glog.Info("Starting the manager")
+
+	// Start the Cmd
+	glog.Fatal(mgr.Start(signals.SetupSignalHandler()))
 }

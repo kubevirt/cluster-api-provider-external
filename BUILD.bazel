@@ -2,19 +2,34 @@ load("@bazel_gazelle//:def.bzl", "gazelle")
 
 gazelle(
     name = "gazelle",
-    external = "vendored",
-    prefix = "github.com/kubevirt/cluster-api-provider-external",
+    prefix = "kubevirt.io/cluster-api-provider-external",
 )
 
 load(
-     "@io_bazel_rules_docker//container:container.bzl",
-     "container_bundle",
-     container_repositories = "repositories",
- )
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_bundle",
+    container_repositories = "repositories",
+)
 
- container_bundle(
-     name = "controller_images",
-     images = {
-         "docker.io/cluster-api-provider-ext:devel": "//cmd/external-controller:controller_image",
-     },
- )
+config_setting(
+    name = "release",
+    values = {"define": "release=true"},
+)
+
+container_bundle(
+    name = "cluster_api_external_provider_images",
+    images = {
+        "index.docker.io/kubevirt/cluster-api-external-provider:latest": "//cmd/external-controller:cluster_api_external_provider_image",
+    },
+)
+
+load("@io_bazel_rules_docker//contrib:push-all.bzl", "docker_push")
+
+docker_push(
+    name = "push_images",
+    bundle = select({
+        "//cluster/k8s-1.11.0:cluster_provider_k8s_1_11_0": "//cluster/k8s-1.11.0:clusterapi_external_provider_images",
+        "//cluster/os-3.10.0:cluster_provider_os_3_10_0": "//cluster/os-3.10.0:clusterapi_external_provider_images",
+        ":release": ":cluster_api_external_provider_images",
+    }),
+)
