@@ -18,7 +18,6 @@ package machinesetup
 
 import (
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"reflect"
@@ -34,7 +33,7 @@ type SetupConfig interface {
 
 // SetupConfigImpl holds the path to the machine setup configs yaml file
 type SetupConfigImpl struct {
-	machineConfigs *MachineConfigList
+	machineSetupPath string
 }
 
 type MachineConfigList struct {
@@ -53,22 +52,17 @@ type Config struct {
 }
 
 type MachineParams struct {
-	Label string      `json:"label,omitempty"`
-	Roles  []v1alpha1.MachineRole `json:"roles,omitempty"`
+	Label string                 `json:"label,omitempty"`
+	Roles []v1alpha1.MachineRole `json:"roles,omitempty"`
 }
 
 func NewSetupConfig(path string) (*SetupConfigImpl, error) {
-	file, err := os.Open(path)
+	_, err := os.Stat(path)
 	if err != nil {
 		return nil, err
 	}
 
-	machineConfigs, err := parseMachineSetupYaml(file)
-	if err != nil {
-		return nil, err
-	}
-
-	return &SetupConfigImpl{machineConfigs: machineConfigs}, nil
+	return &SetupConfigImpl{machineSetupPath: path}, nil
 }
 
 func (s *SetupConfigImpl) GetConfig(params *MachineParams) (*Config, error) {
@@ -80,8 +74,13 @@ func (s *SetupConfigImpl) GetConfig(params *MachineParams) (*Config, error) {
 }
 
 func (s *SetupConfigImpl) matchMachineConfig(params *MachineParams) (*MachineConfig, error) {
+	machineConfigs, err := s.parseMachineSetupYaml()
+	if err != nil {
+		return nil, err
+	}
+
 	matchingConfigs := make([]MachineConfig, 0)
-	for _, conf := range s.machineConfigs.Items {
+	for _, conf := range machineConfigs.Items {
 		for _, validParams := range conf.MachineParams {
 			if params.Label != validParams.Label {
 				continue
@@ -114,8 +113,14 @@ func rolesToMap(roles []v1alpha1.MachineRole) map[v1alpha1.MachineRole]int {
 	return rolesMap
 }
 
-func parseMachineSetupYaml(reader io.Reader) (*MachineConfigList, error) {
-	bytes, err := ioutil.ReadAll(reader)
+func (s *SetupConfigImpl) parseMachineSetupYaml() (*MachineConfigList, error) {
+	f, err := os.Open(s.machineSetupPath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	bytes, err := ioutil.ReadAll(f)
 	if err != nil {
 		return nil, err
 	}
