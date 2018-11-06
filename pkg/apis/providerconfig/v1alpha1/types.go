@@ -57,7 +57,7 @@ type ExternalMachineProviderConfig struct {
 	// FencingConfig specify machine power management configuration
 	FencingConfig *FencingConfig `json:"fencingConfig"`
 	// Label give possibility to map between machine to specific configuration under configMap
-	Label string `json:"labels,omitempty"`
+	Label string `json:"label,omitempty"`
 	// Roles specify which role will server machine under the cluster
 	Roles []MachineRole `json:"roles,omitempty"`
 }
