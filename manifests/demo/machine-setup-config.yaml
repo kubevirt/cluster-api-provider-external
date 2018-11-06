@@ -27,6 +27,15 @@ data:
           deleteArgs: [ "-o", "off" ]
           argumentFormat: cli
           passTargetAs: port
+          dynamicConfig:
+            - field: ip
+              values:
+                had-14.ha.lab.eng.bos.redhat.com: had-14-drac
+                had-15.ha.lab.eng.bos.redhat.com: had-15-drac
+              # Aspirational replacement...
+              # transform:
+              #   sourcePattern: .ha.lab.eng.bos.redhat.com
+              #   replacePattern: -drac
           secrets:	
             username: ipmi-secret	
             password: ipmi-secret
