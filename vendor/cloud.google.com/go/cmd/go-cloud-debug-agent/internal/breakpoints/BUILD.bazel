@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["breakpoints.go"],
+    importmap = "kubevirt.io/cluster-api-provider-external/vendor/cloud.google.com/go/cmd/go-cloud-debug-agent/internal/breakpoints",
+    importpath = "cloud.google.com/go/cmd/go-cloud-debug-agent/internal/breakpoints",
+    visibility = ["//vendor/cloud.google.com/go/cmd/go-cloud-debug-agent:__subpackages__"],
+    deps = [
+        "//vendor/cloud.google.com/go/cmd/go-cloud-debug-agent/internal/debug:go_default_library",
+        "@org_golang_google_api//clouddebugger/v2:go_default_library",
+    ],
+)

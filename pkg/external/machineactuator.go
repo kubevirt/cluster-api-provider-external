@@ -175,7 +175,7 @@ func (c *ExternalClient) executeAction(command string, cluster *clusterv1.Cluste
 }
 
 func (c *ExternalClient) waitForJob(jobName string, namespace string, retries int) error {
-
+	// TODO: Use informers to fetch resources
 	job, err := c.kubeclient.BatchV1().Jobs(namespace).Get(jobName, metav1.GetOptions{})
 	glog.Infof("Waiting %d times for job %v: %v", retries, job.Name, err)
 
@@ -183,7 +183,6 @@ func (c *ExternalClient) waitForJob(jobName string, namespace string, retries in
 		if err != nil {
 			return err
 		}
-		// logrus.Infof("Job %v/%v: %v", job.Name, job.ObjectMeta.ResourceVersion, job.Status)
 		if len(job.Status.Conditions) > 0 {
 			for _, condition := range job.Status.Conditions {
 
@@ -192,6 +191,12 @@ func (c *ExternalClient) waitForJob(jobName string, namespace string, retries in
 
 				} else if condition.Type == batchv1.JobComplete {
 					if job.Status.Succeeded > 0 {
+						if job.DeletionTimestamp == nil {
+							err := c.kubeclient.BatchV1().Jobs(namespace).Delete(job.Name, &metav1.DeleteOptions{})
+							if err != nil {
+								glog.Errorf("failed to delete succeeded job %s: %v", job.Name, err)
+							}
+						}
 						return nil
 					}
 					return fmt.Errorf("Job %v failed: %v", job.Name, condition.Message)
