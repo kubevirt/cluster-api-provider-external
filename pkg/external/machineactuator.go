@@ -121,25 +121,26 @@ func (c *ExternalClient) Update(cluster *clusterv1.Cluster, goalMachine *cluster
 // Exists returns true, if machine is power-on
 func (c *ExternalClient) Exists(cluster *clusterv1.Cluster, machine *clusterv1.Machine) (bool, error) {
 	glog.Infof("Checking if machine %s is power-on", machine.Name)
-	if _, err := c.executeAction(checkEventAction, cluster, machine, true); err != nil {
+	nodeFenceState, err := c.executeAction(checkEventAction, cluster, machine, true)
+	if err != nil {
 		// TODO: we need to get output from the job
-		glog.Infof("Machine %s not found: %v", machine.ObjectMeta.Name, err)
+		glog.Infof("%s fence command on the machine %s failed: %v", checkEventAction, machine.Name, err)
 		return false, err
 	}
 
-	glog.Infof("Machine %s has status power-on", machine.Name)
-	return true, nil
+	glog.Infof("Machine %s has status power-on equals to %b", machine.Name, nodeFenceState)
+	return nodeFenceState, nil
 }
 
-func (c *ExternalClient) executeAction(command string, cluster *clusterv1.Cluster, machine *clusterv1.Machine, doWait bool) (*string, error) {
+func (c *ExternalClient) executeAction(command string, cluster *clusterv1.Cluster, machine *clusterv1.Machine, doWait bool) (bool, error) {
 	fencingConfig, err := c.chooseFencingConfig(machine)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 
 	fencingJob, err := createFencingJob(command, machine, fencingConfig)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 
 	backoff := wait.Backoff{
@@ -160,34 +161,57 @@ func (c *ExternalClient) executeAction(command string, cluster *clusterv1.Cluste
 	})
 
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 
 	if doWait {
-		if err := c.waitForJob(fencingJob.Name, fencingJob.Namespace, -1); err != nil {
+		nodeFenceState, err := c.waitForJob(fencingJob.Name, fencingJob.Namespace, -1)
+		if err != nil {
 			glog.Errorf("Job %v error: %v", fencingJob.Name, err)
-			return nil, err
+			return false, err
 		}
+		return nodeFenceState, nil
 	}
 
 	glog.Infof("Job %v complete", fencingJob.Name)
-	return &fencingJob.Name, nil
+	return true, nil
 }
 
-func (c *ExternalClient) waitForJob(jobName string, namespace string, retries int) error {
+func (c *ExternalClient) waitForJob(jobName string, namespace string, retries int) (bool, error) {
 	// TODO: Use informers to fetch resources
 	job, err := c.kubeclient.BatchV1().Jobs(namespace).Get(jobName, metav1.GetOptions{})
-	glog.Infof("Waiting %d times for job %v: %v", retries, job.Name, err)
+	if err != nil {
+		return false, err
+	}
+	glog.Infof("Waiting %d times for job %v", retries, job.Name)
 
+	var jobPod *corev1.Pod
 	for lpc := 0; lpc < retries || retries < 0; lpc++ {
+		// TODO: when host has OFF state, fence command returns code 2, so I need to catch it
+		// in the future need to refactor fence logic container
+		jobPods, err := c.kubeclient.CoreV1().Pods(namespace).List(metav1.ListOptions{
+			LabelSelector: "job-name="+job.Name,
+		})
 		if err != nil {
-			return err
+			return false, err
 		}
+		if len(jobPods.Items) != 0 {
+			jobPod = &jobPods.Items[0]
+		}
+
 		if len(job.Status.Conditions) > 0 {
 			for _, condition := range job.Status.Conditions {
-
 				if condition.Type == batchv1.JobFailed {
-					return fmt.Errorf("Job %v failed: %v", job.Name, condition.Message)
+					if jobPod != nil {
+						for _, containerState := range jobPod.Status.ContainerStatuses {
+							if containerState.State.Terminated != nil {
+								if containerState.State.Terminated.ExitCode == 2 {
+									return false, nil
+								}
+							}
+						}
+					}
+					return false, fmt.Errorf("Job %v failed: %v", job.Name, condition.Message)
 
 				} else if condition.Type == batchv1.JobComplete {
 					if job.Status.Succeeded > 0 {
@@ -197,9 +221,9 @@ func (c *ExternalClient) waitForJob(jobName string, namespace string, retries in
 								glog.Errorf("failed to delete succeeded job %s: %v", job.Name, err)
 							}
 						}
-						return nil
+						return true, nil
 					}
-					return fmt.Errorf("Job %v failed: %v", job.Name, condition.Message)
+					return false, fmt.Errorf("Job %v failed: %v", job.Name, condition.Message)
 				}
 			}
 		}
@@ -207,9 +231,12 @@ func (c *ExternalClient) waitForJob(jobName string, namespace string, retries in
 
 		options := metav1.GetOptions{ResourceVersion: job.ObjectMeta.ResourceVersion}
 		job, err = c.kubeclient.BatchV1().Jobs(namespace).Get(job.ObjectMeta.Name, options)
+		if err != nil {
+			return false, err
+		}
 	}
 
-	return fmt.Errorf("Job %v in progress", job.Name)
+	return false, fmt.Errorf("Job %v in progress", job.Name)
 }
 
 func (c *ExternalClient) chooseFencingConfig(machine *clusterv1.Machine) (*v1alpha1.FencingConfig, error) {
