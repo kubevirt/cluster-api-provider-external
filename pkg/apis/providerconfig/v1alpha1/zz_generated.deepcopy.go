@@ -135,13 +135,6 @@ func (in *ExternalMachineProviderConfig) DeepCopyObject() runtime.Object {
 func (in *FencingConfig) DeepCopyInto(out *FencingConfig) {
 	*out = *in
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
-	if in.NodeSelector != nil {
-		in, out := &in.NodeSelector, &out.NodeSelector
-		*out = make(map[string]string, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
-		}
-	}
 	if in.Container != nil {
 		in, out := &in.Container, &out.Container
 		if *in == nil {

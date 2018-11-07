@@ -75,10 +75,6 @@ type ExternalClusterProviderConfig struct {
 type FencingConfig struct {
 	metav1.ObjectMeta `json:",inline"`
 
-	// Query that specifies which node(s) this config applies to
-	// Not relevant if setting as part of the machine definition
-	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-
 	// Container that handles machine operations
 	Container *v1.Container `json:"container"`
 
@@ -100,14 +96,6 @@ type FencingConfig struct {
 	// Optional command to be used instead of the default when
 	// handling machine Update operations (reboot)
 	RebootArgs []string `json:"rebootArgs,omitempty"`
-
-	// How Secrets and DynamicConfig should be passed to the
-	// container: ([env], cli)
-	ArgumentFormat string `json:"argumentFormat"`
-
-	// Parameters to use for automatic variables
-	PassActionAs string `json:"passActionAs,omitempty"`
-	PassTargetAs string `json:"passTargetAs,omitempty"`
 
 	// Parameters common to all commands that may be passed as either
 	// name/value pairs or "--name value" depending on the value of

@@ -16,12 +16,16 @@ func NewFenceCommand() *cobra.Command {
 
 	fence := &cobra.Command{
 		Use:   "fence",
-		Short: "run fence command on the host",
+		Short: "run fencing command on the host",
 		RunE:  fence,
 		Args:  cobra.NoArgs,
 	}
-	fence.Flags().Bool("dry-run", false, "Dry run fence agent, it will only log fence command, but will not execute it")
-	fence.Flags().String("options", "", "Additional options passed to fence agents(key=value,...)")
+
+	fence.PersistentFlags().String("agent-type", "", "Fencing device type")
+	fence.PersistentFlags().String("action", "", "Power management action(status, reboot, off or on)")
+	fence.PersistentFlags().String("ip", "", "IP address or hostname of fencing device")
+	fence.PersistentFlags().String("username-secret", "", "Username secret file path")
+	fence.PersistentFlags().String("password-secret", "", "Password secret file path")
 	return fence
 }
 
@@ -29,11 +33,11 @@ func fence(cmd *cobra.Command, _ []string) (err error) {
 	fenceArgs := []string{}
 
 	// Set power management agent type
-	fenceAgentType, err := cmd.Flags().GetString("type")
+	fenceAgentType, err := cmd.Flags().GetString("agent-type")
 	if err != nil {
 		return err
 	}
-	fenceCommand := filepath.Join("sbin", fenceAgentType)
+	fenceCommand := filepath.Join("sbin", fmt.Sprintf("fence_%s", fenceAgentType))
 
 	// Set power management action
 	fenceAction, err := cmd.Flags().GetString("action")

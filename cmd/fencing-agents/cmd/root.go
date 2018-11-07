@@ -12,8 +12,8 @@ import (
 func NewRootCommand() *cobra.Command {
 
 	root := &cobra.Command{
-		Use:   "fencing-agents",
-		Short: "fencing-agents helps you to call fence actions on the host",
+		Use:   "fence-provision",
+		Short: "fence-provision can fence or provision your host",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Fprint(cmd.OutOrStderr(), cmd.UsageString())
 		},
@@ -21,11 +21,8 @@ func NewRootCommand() *cobra.Command {
 		SilenceErrors: true,
 	}
 
-	root.PersistentFlags().String("type", "", "Fencing device type")
-	root.PersistentFlags().String("action", "", "Power management action(status, reboot, off or on)")
-	root.PersistentFlags().String("ip", "", "IP address or hostname of fencing device")
-	root.PersistentFlags().String("username-secret", "", "Username secret file path")
-	root.PersistentFlags().String("password-secret", "", "Password secret file path")
+	root.Flags().Bool("dry-run", false, "Dry run of the command, it will only log the command, but will not execute it")
+	root.Flags().String("options", "", "Additional options passed to the command(key=value,...)")
 
 	root.AddCommand(
 		NewFenceCommand(),

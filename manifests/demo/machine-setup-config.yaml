@@ -7,7 +7,7 @@ data:
   machine_setup_configs.yaml: |-
     items:
     - machineParams:
-      - label: ipmilan-machine
+      - label: drac-machine
         roles:
         - worker
       config:
@@ -21,21 +21,21 @@ data:
           container:
             name: fence-agents
             image: quay.io/beekhof/fence-agents:0.0.11
-            command: [ "/bin/secret-handler.sh", "/sbin/fence_ipmilan", "-v" ]
+            command: 
+              - "fence-provision"
+              - "fence"
+              - "--agent-type"
+              - "ipmilan"
           checkArgs:  [ "-o", "status" ]
-          createArgs: [ "-o", "on"  ]
-          deleteArgs: [ "-o", "off" ]
+          createArgs:  [ "-o", "on" ]
+          deleteArgs:  [ "-o", "off" ]
           argumentFormat: cli
           passTargetAs: port
           dynamicConfig:
             - field: ip
               values:
-                had-14.ha.lab.eng.bos.redhat.com: had-14-drac
-                had-15.ha.lab.eng.bos.redhat.com: had-15-drac
-              # Aspirational replacement...
-              # transform:
-              #   sourcePattern: .ha.lab.eng.bos.redhat.com
-              #   replacePattern: -drac
-          secrets:	
-            username: ipmi-secret	
+                had-14: had-14-drac
+                had-15: had-15-drac
+          secrets:
+            username: ipmi-secret
             password: ipmi-secret
