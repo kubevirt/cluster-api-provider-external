@@ -144,13 +144,6 @@ func (in *FencingConfig) DeepCopyInto(out *FencingConfig) {
 			(*in).DeepCopyInto(*out)
 		}
 	}
-	if in.Volumes != nil {
-		in, out := &in.Volumes, &out.Volumes
-		*out = make([]v1.Volume, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
-		}
-	}
 	if in.CheckArgs != nil {
 		in, out := &in.CheckArgs, &out.CheckArgs
 		*out = make([]string, len(*in))
@@ -183,13 +176,6 @@ func (in *FencingConfig) DeepCopyInto(out *FencingConfig) {
 		*out = make([]DynamicConfigElement, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
-		}
-	}
-	if in.Secrets != nil {
-		in, out := &in.Secrets, &out.Secrets
-		*out = make(map[string]string, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
 		}
 	}
 	if in.TimeoutSeconds != nil {

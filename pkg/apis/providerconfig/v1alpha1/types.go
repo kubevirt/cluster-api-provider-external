@@ -78,9 +78,6 @@ type FencingConfig struct {
 	// Container that handles machine operations
 	Container *v1.Container `json:"container"`
 
-	// Volumes that must be mounted to the fencing container
-	Volumes []v1.Volume `json:"volumes"`
-
 	// Optional command to be used instead of the default when
 	// handling machine Create operations (power-on/provisioning)
 	CheckArgs []string `json:"checkArgs,omitempty"`
@@ -106,8 +103,8 @@ type FencingConfig struct {
 	// Not relevant if setting as part of the machine definition
 	DynamicConfig []DynamicConfigElement `json:"dynamicConfig,omitempty"`
 
-	// A list of Kubernetes secrets to securely pass to the container
-	Secrets map[string]string `json:"secrets"`
+	// Secret contains fencing agent username and password
+	Secret string `json:"secret"`
 
 	// How long to wait for the Job to complete
 	TimeoutSeconds *int32 `json:"timeoutSeconds,omitempty"`

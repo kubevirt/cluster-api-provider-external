@@ -21,17 +21,12 @@ func NewFenceCommand() *cobra.Command {
 		Args:  cobra.NoArgs,
 	}
 
-	fence.PersistentFlags().String("agent-type", "", "Fencing device type")
-	fence.PersistentFlags().String("action", "", "Power management action(status, reboot, off or on)")
-	fence.PersistentFlags().String("ip", "", "IP address or hostname of fencing device")
-	fence.PersistentFlags().String("username-secret", "", "Username secret file path")
-	fence.PersistentFlags().String("password-secret", "", "Password secret file path")
+	fence.PersistentFlags().String("agent-type", "", "Fencing agent type")
+	fence.PersistentFlags().String("secret-path", "", "Path to the secret that contains fencing agent username and password")
 	return fence
 }
 
-func fence(cmd *cobra.Command, _ []string) (err error) {
-	fenceArgs := []string{}
-
+func fence(cmd *cobra.Command, args []string) (err error) {
 	// Set power management agent type
 	fenceAgentType, err := cmd.Flags().GetString("agent-type")
 	if err != nil {
@@ -39,37 +34,25 @@ func fence(cmd *cobra.Command, _ []string) (err error) {
 	}
 	fenceCommand := filepath.Join("sbin", fmt.Sprintf("fence_%s", fenceAgentType))
 
-	// Set power management action
-	fenceAction, err := cmd.Flags().GetString("action")
+	fenceArgs := []string{}
+	if args != nil {
+		fenceArgs = append(fenceArgs, args...)
+	}
+
+	
+	secretPath, err := cmd.Flags().GetString("secret-path")
 	if err != nil {
 		return err
 	}
-	fenceArgs = append(fenceArgs, fmt.Sprintf("--action=%s", fenceAction))
-
-	// Set power management target host
-	targetHost, err := cmd.Flags().GetString("ip")
-	if err != nil {
-		return err
-	}
-	fenceArgs = append(fenceArgs, fmt.Sprintf("--ip=%s", targetHost))
-
 	// Set power management username
-	usernameSecret, err := cmd.Flags().GetString("username-secret")
-	if err != nil {
-		return err
-	}
-	username, err := ioutil.ReadFile(usernameSecret)
+	username, err := ioutil.ReadFile(filepath.Join(secretPath, "username"))
 	if err != nil {
 		return err
 	}
 	fenceArgs = append(fenceArgs, fmt.Sprintf("--username=%s", username))
 
 	// Set power management password
-	passwordSecret, err := cmd.Flags().GetString("password-secret")
-	if err != nil {
-		return err
-	}
-	password, err := ioutil.ReadFile(passwordSecret)
+	password, err := ioutil.ReadFile(filepath.Join(secretPath, "password"))
 	if err != nil {
 		return err
 	}
