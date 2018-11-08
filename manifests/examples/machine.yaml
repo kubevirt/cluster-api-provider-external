@@ -1,0 +1,16 @@
+---
+apiVersion: "cluster.k8s.io/v1alpha1"
+kind: Machine
+metadata:
+  name: example-machine
+  namespace: clusterapi-external-provider
+  labels:
+    kubevirt.io: "clusterapi-external-provider"
+spec:
+  providerConfig:
+    value:
+      apiVersion: "externalproviderconfig/v1alpha1"
+      kind: "ExternalMachineProviderConfig"
+      label: drac-machine
+      roles:
+      - worker

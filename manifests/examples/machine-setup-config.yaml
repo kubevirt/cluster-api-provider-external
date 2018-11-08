@@ -1,0 +1,39 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example-machine-setup
+  namespace: {{.Namespace}}
+data:
+  machine_setup_configs.yaml: |-
+    items:
+    - machineParams:
+      - label: drac-machine
+        roles:
+        - worker
+      config:
+        startupScript: |
+          set -ex
+          (
+          echo done.
+          ) 2>&1 | tee /var/log/startup.log
+        fencingConfig:
+          name: had-drac
+          container:
+            name: fence-agents
+            image: {{.DockerPrefix}}/fencing-agents:{{.DockerTag}}
+            command:
+              - "fence-provision"
+            args:
+              - "fence"
+              - "--agent-type"
+              - "ipmilan"
+            imagePullPolicy: {{.ImagePullPolicy}}
+          checkArgs:  [ "--action", "status" ]
+          createArgs:  [ "--action", "on" ]
+          deleteArgs:  [ "--action", "off" ]
+          dynamicConfig:
+            - field: ip
+              values:
+                example-machine: example-machine-14-drac
+          secret: example-secret
