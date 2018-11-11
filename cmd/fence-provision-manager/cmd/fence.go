@@ -18,11 +18,12 @@ func NewFenceCommand() *cobra.Command {
 		Use:   "fence",
 		Short: "run fencing command on the host",
 		RunE:  fence,
-		Args:  cobra.NoArgs,
+		Args:  cobra.ArbitraryArgs,
 	}
 
 	fence.PersistentFlags().String("agent-type", "", "Fencing agent type")
 	fence.PersistentFlags().String("secret-path", "", "Path to the secret that contains fencing agent username and password")
+	fence.PersistentFlags().StringP("action", "o", "", "Fencing action(status, reboot, off or on)")
 	return fence
 }
 
@@ -57,6 +58,13 @@ func fence(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 	fenceArgs = append(fenceArgs, fmt.Sprintf("--password=%s", password))
+
+	// Set power management action
+	action, err := cmd.Flags().GetString("action")
+	if err != nil {
+		return err
+	}
+	fenceArgs = append(fenceArgs, fmt.Sprintf("--action=%s", action))
 
 	// Set additional arguments
 	options, err := cmd.Flags().GetString("options")

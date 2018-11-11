@@ -20,10 +20,10 @@ data:
         fencingConfig:
           name: had-drac
           container:
-            name: fence-agents
-            image: {{.DockerPrefix}}/fencing-agents:{{.DockerTag}}
+            name: fence-provision-manager
+            image: {{.DockerPrefix}}/fence-provision-manager:{{.DockerTag}}
             command:
-              - "fence-provision"
+              - "fence-provision-manager"
             args:
               - "fence"
               - "--agent-type"

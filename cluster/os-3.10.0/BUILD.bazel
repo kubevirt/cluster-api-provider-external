@@ -8,7 +8,7 @@ container_bundle(
     name = "clusterapi_external_provider_images",
     images = {
         "localhost:33001/cluster-api-provider-external:devel": "//cmd/external-controller:cluster_api_provider_external_image",
-        "localhost:33001/kubevirt/fencing-agents:devel": "//cmd/fencing-agents:fencing-agents-image",
+        "localhost:33001/kubevirt/fence-provision-manager:devel": "//cmd/fence-provision-manager:fence-provision-manager-image",
     },
     visibility = ["//visibility:public"],
 )

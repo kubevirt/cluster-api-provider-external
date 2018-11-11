@@ -12,8 +12,8 @@ import (
 func NewRootCommand() *cobra.Command {
 
 	root := &cobra.Command{
-		Use:   "fence-provision",
-		Short: "fence-provision can fence or provision your host",
+		Use:   "fence-provision-manager",
+		Short: "fence-provision-manager can execute fencing and provisioning actions",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Fprint(cmd.OutOrStderr(), cmd.UsageString())
 		},

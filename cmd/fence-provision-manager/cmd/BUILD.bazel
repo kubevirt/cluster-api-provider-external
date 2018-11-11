@@ -6,7 +6,7 @@ go_library(
         "fence.go",
         "root.go",
     ],
-    importpath = "kubevirt.io/cluster-api-provider-external/cmd/fencing-agents/cmd",
+    importpath = "kubevirt.io/cluster-api-provider-external/cmd/fence-provision-manager/cmd",
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/github.com/golang/glog:go_default_library",

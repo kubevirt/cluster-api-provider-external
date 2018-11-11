@@ -93,7 +93,7 @@ spec:
         - "/usr/bin/external-controller"
         args:	
         - --machinesetup=/etc/machinesetup/machine_setup_configs.yaml
-        imagePullPolicy: Always
+        imagePullPolicy: {{.ImagePullPolicy}}
         volumeMounts:	
         - name: machine-setup	
           mountPath: /etc/machinesetup
