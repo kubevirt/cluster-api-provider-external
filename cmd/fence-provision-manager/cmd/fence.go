@@ -1,16 +1,35 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2018 Red Hat, Inc.
+ *
+ */
+
 package cmd
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 )
+
+const actionStatus = "status"
 
 func NewFenceCommand() *cobra.Command {
 
@@ -21,9 +40,9 @@ func NewFenceCommand() *cobra.Command {
 		Args:  cobra.ArbitraryArgs,
 	}
 
-	fence.PersistentFlags().String("agent-type", "", "Fencing agent type")
-	fence.PersistentFlags().String("secret-path", "", "Path to the secret that contains fencing agent username and password")
-	fence.PersistentFlags().StringP("action", "o", "", "Fencing action(status, reboot, off or on)")
+	fence.Flags().String("agent-type", "", "Fencing agent type")
+	fence.Flags().String("secret-path", "", "Path to the secret that contains fencing agent username and password")
+	fence.Flags().StringP("action", "o", "", "Fencing action(status, reboot, off or on)")
 	return fence
 }
 
@@ -33,14 +52,13 @@ func fence(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	fenceCommand := filepath.Join("sbin", fmt.Sprintf("fence_%s", fenceAgentType))
+	fenceCommand := filepath.Join("/sbin", fmt.Sprintf("fence_%s", fenceAgentType))
 
 	fenceArgs := []string{}
 	if args != nil {
 		fenceArgs = append(fenceArgs, args...)
 	}
 
-	
 	secretPath, err := cmd.Flags().GetString("secret-path")
 	if err != nil {
 		return err
@@ -50,14 +68,14 @@ func fence(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	fenceArgs = append(fenceArgs, fmt.Sprintf("--username=%s", username))
+	fenceArgs = append(fenceArgs, fmt.Sprintf("--username=%s", strings.Trim(string(username), "\n")))
 
 	// Set power management password
 	password, err := ioutil.ReadFile(filepath.Join(secretPath, "password"))
 	if err != nil {
 		return err
 	}
-	fenceArgs = append(fenceArgs, fmt.Sprintf("--password=%s", password))
+	fenceArgs = append(fenceArgs, fmt.Sprintf("--password=%s", strings.Trim(string(password), "\n")))
 
 	// Set power management action
 	action, err := cmd.Flags().GetString("action")
@@ -79,7 +97,7 @@ func fence(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
-	glog.Infof("run fence command %s with arguments %s", fenceCommand, fenceArgs)
+	glog.Infof("running fence command %s with arguments %s", fenceCommand, fenceArgs)
 	// Do not run command if dry-run is true
 	dryRun, err := cmd.Flags().GetBool("dry-run")
 	if err != nil {
@@ -90,13 +108,9 @@ func fence(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// Execute fence command
-	var out bytes.Buffer
-	execCmd := exec.Command(fenceCommand, fenceArgs...)
-	execCmd.Stdout = &out
-	err = execCmd.Run()
-	if err != nil {
-		return err
+	_, stderr, rc := RunCommand(fenceCommand, fenceArgs...)
+	if (action == actionStatus && rc == 2) || rc == 0 {
+		return nil
 	}
-	glog.Infof("fence command output: %s", out.String())
-	return nil
+	return fmt.Errorf(stderr)
 }

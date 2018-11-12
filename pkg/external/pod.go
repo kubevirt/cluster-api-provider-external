@@ -139,7 +139,7 @@ func getFencingCommand(c *v1.Container, fencingConfig *v1alpha1.FencingConfig, a
 				glog.Warningf("no value of '%s' found for '%s'", dc.Field, target)
 			}
 		}
-		fencingCommand = append(fencingCommand, fmt.Sprintf("--options=\"%s\"", strings.Join(options, ",")))
+		fencingCommand = append(fencingCommand, fmt.Sprintf("--options=%s", strings.Join(options, ",")))
 	}
 
 	glog.Infof("%s %v fencingCommand: %v", fencingConfig.Container.Name, action, fencingCommand)

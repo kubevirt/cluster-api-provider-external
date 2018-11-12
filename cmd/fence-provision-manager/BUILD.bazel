@@ -23,15 +23,15 @@ load(
 load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
-genrule(
-    name = "fence-provision-manager-tar",
-    srcs = [
-        "build.sh",
-        "Dockerfile",
-    ],
-    outs = ["fencing_agents.tar"],
-    cmd = "./$(location build.sh) $(location fencing_agents.tar)",
-)
+#genrule(
+#    name = "fencing-agents-tar",
+#    srcs = [
+#        "build.sh",
+#        "Dockerfile",
+#    ],
+#    outs = ["fencing_agents.tar"],
+#    cmd = "./$(location build.sh) $(location fencing_agents.tar)",
+#)
 
 passwd_entry(
     name = "nonroot_user",
@@ -58,7 +58,7 @@ pkg_tar(
 
 container_image(
     name = "passwd_image",
-    base = "@fedora//image",
+    base = "@fence-agents//image",
     tars = [":passwd_tar"],
     user = "fence-provision-manager",
     visibility = ["//visibility:private"],
@@ -68,7 +68,6 @@ container_image(
     name = "fence-provision-manager-image",
     base = ":passwd_image",
     files = [":fence-provision-manager"],
-    tars = [":fence-provision-manager-tar"],
     directory = "/usr/bin",
     entrypoint = ["/usr/bin/fence-provision-manager"],
     user = "fence-provision-manager",

@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "fence.go",
         "root.go",
+        "utils.go",
     ],
     importpath = "kubevirt.io/cluster-api-provider-external/cmd/fence-provision-manager/cmd",
     visibility = ["//visibility:public"],

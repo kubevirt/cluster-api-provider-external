@@ -46,6 +46,14 @@ container_pull(
   #tag = "28",
 )
 
+container_pull(
+  name = "fence-agents",
+  registry = "index.docker.io",
+  repository = "kubevirt/fence-agents",
+  digest = "sha256:2d65b196a073bf7a30e691a5879b768e47c46dcf12f38ffcbe047fd8df36aeed",
+  #tag = "28",
+)
+
 load(
     "@io_bazel_rules_docker//go:image.bzl",
     _go_image_repos = "repositories",
