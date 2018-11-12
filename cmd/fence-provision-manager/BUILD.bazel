@@ -23,16 +23,6 @@ load(
 load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
-#genrule(
-#    name = "fencing-agents-tar",
-#    srcs = [
-#        "build.sh",
-#        "Dockerfile",
-#    ],
-#    outs = ["fencing_agents.tar"],
-#    cmd = "./$(location build.sh) $(location fencing_agents.tar)",
-#)
-
 passwd_entry(
     name = "nonroot_user",
     home = "/home/fence-provision-manager",

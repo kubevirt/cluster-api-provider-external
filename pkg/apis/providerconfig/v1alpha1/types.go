@@ -114,6 +114,10 @@ type FencingConfig struct {
 
 	// How long to wait before retrying failed Jobs
 	Retries *int32 `json:"retries,omitempty"`
+
+	// Volumes represent additional volumes that you want to attach
+	// to the container
+	Volumes []v1.Volume `json:"volumes,omitempty"`
 }
 
 type DynamicConfigElement struct {

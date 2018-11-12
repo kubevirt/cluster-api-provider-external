@@ -50,8 +50,14 @@ func createFencingJob(action string, machine *clusterv1.Machine, fencingConfig *
 		return nil, fmt.Errorf("failed to get fencing command: %v", err)
 	}
 	container.Args = fencingArgs
-
+	
 	volumes := processSecret(fencingConfig, container)
+
+	// Attach additional volumes to the job pod
+	for _, v := range fencingConfig.Volumes {
+		volumes = append(volumes, v)
+	}
+
 	// Add the container to the PodSpec
 	containers = append(containers, *container)
 

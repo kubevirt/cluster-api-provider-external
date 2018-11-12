@@ -51,7 +51,37 @@ metadata:
     kubevirt.io: "clusterapi-external-provider"
 data:
   machine_setup_configs.yaml: |-
-    items: []
+    items:
+    - machineParams:
+      - label: drac-machine
+        roles:
+        - worker
+      config:
+        startupScript: |
+          set -ex
+          (
+          echo done.
+          ) 2>&1 | tee /var/log/startup.log
+        fencingConfig:
+          name: had-drac
+          container:
+            name: fence-provision-manager
+            image: {{.DockerPrefix}}/fence-provision-manager:{{.DockerTag}}
+            command:
+              - "fence-provision-manager"
+            args:
+              - "fence"
+              - "--agent-type"
+              - "ipmilan"
+            imagePullPolicy: {{.ImagePullPolicy}}
+          checkArgs:  [ "--action", "status" ]
+          createArgs:  [ "--action", "on" ]
+          deleteArgs:  [ "--action", "off" ]
+          dynamicConfig:
+            - field: ip
+              values:
+                example-machine: example-machine-14-drac
+          secret: example-secret
 ---
 apiVersion: apps/v1beta1
 kind: Deployment
