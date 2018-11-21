@@ -81,7 +81,7 @@ spec:
         operator: Exists
       containers:
       - name: clusterapi-external-controller
-        image: {{.DockerPrefix}}/cluster-api-external-provider:{{.DockerTag}}
+        image: {{.DockerPrefix}}/cluster-api-provider-external:{{.DockerTag}}
         command:
         - "/usr/bin/external-controller"
         args:	

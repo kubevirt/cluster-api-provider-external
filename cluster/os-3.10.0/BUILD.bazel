@@ -7,7 +7,7 @@ load(
 container_bundle(
     name = "clusterapi_external_provider_images",
     images = {
-        "localhost:33001/cluster-api-external-provider:devel": "//cmd/external-controller:cluster_api_external_provider_image",
+        "localhost:33001/cluster-api-provider-external:devel": "//cmd/external-controller:cluster_api_external_provider_image",
     },
     visibility = ["//visibility:public"],
 )
