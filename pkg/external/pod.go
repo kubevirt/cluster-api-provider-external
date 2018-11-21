@@ -43,7 +43,7 @@ func createFencingJob(action string, machine *clusterv1.Machine, fencingConfig *
 	volumeMap := map[string]v1.Volume{}
 	containers := []v1.Container{}
 
-	labels := map[string]string{"kubevirt.io/cluster-api-external-provider": action}
+	labels := map[string]string{"kubevirt.io/cluster-api-provider-external": action}
 
 	container := fencingConfig.Container.DeepCopy()
 
@@ -89,7 +89,7 @@ func createFencingJob(action string, machine *clusterv1.Machine, fencingConfig *
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%v-job-%v-", machine.ObjectMeta.Name, strings.ToLower(action)),
 			Namespace:    machine.Namespace,
-			Labels: labels,
+			Labels:       labels,
 		},
 		Spec: v1batch.JobSpec{
 			BackoffLimit:          fencingConfig.Retries,

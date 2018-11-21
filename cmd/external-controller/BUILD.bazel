@@ -37,11 +37,11 @@ load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 passwd_entry(
     name = "nonroot_user",
-    home = "/home/cluster-api-external-provider",
+    home = "/home/cluster-api-provider-external",
     shell = "/bin/bash",
     uid = 1001,
     gid = 1001,
-    username = "cluster-api-external-provider",
+    username = "cluster-api-provider-external",
 )
 
 passwd_file(
@@ -62,7 +62,7 @@ container_image(
     name = "passwd_image",
     base = "@fedora//image",
     tars = [":passwd_tar"],
-    user = "cluster-api-external-provider",
+    user = "cluster-api-provider-external",
     visibility = ["//visibility:private"],
 )
 
@@ -72,6 +72,6 @@ container_image(
     files = [":external-controller"],
     directory = "/usr/bin",
     entrypoint = ["/usr/bin/external-controller"],
-    user = "cluster-api-external-provider",
+    user = "cluster-api-provider-external",
     visibility = ["//visibility:public"],
 )
