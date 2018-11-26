@@ -47,10 +47,10 @@ container_pull(
 )
 
 container_pull(
-  name = "fence-agents",
+  name = "fence-provision-base",
   registry = "index.docker.io",
-  repository = "kubevirt/fence-agents",
-  digest = "sha256:2d65b196a073bf7a30e691a5879b768e47c46dcf12f38ffcbe047fd8df36aeed",
+  repository = "alukiano/fence-provision-base",
+  digest = "sha256:b3000c079d1c20b5924cf8615311c950ec34ed45fef7b0616eca819ebe577564",
   #tag = "28",
 )
 
