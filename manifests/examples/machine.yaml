@@ -3,9 +3,9 @@ apiVersion: "cluster.k8s.io/v1alpha1"
 kind: Machine
 metadata:
   name: example-machine
-  namespace: clusterapi-external-provider
+  namespace: cluster-api-provider-external
   labels:
-    kubevirt.io: "clusterapi-external-provider"
+    kubevirt.io: "cluster-api-provider-external"
 spec:
   providerConfig:
     value:

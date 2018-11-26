@@ -24,7 +24,10 @@ load(
 container_image(
     name = "passwd_image",
     base = "@fence-provision-base//image",
-    tars = ["//:passwd_tar"],
+    tars = [
+        "//:passwd_tar",
+        "//cmd/fence-provision-manager/ansible:ansible_tar",
+    ],
     user = "non-root",
     visibility = ["//visibility:private"],
 )
@@ -33,6 +36,7 @@ container_image(
     name = "fence_provision_manager_image",
     base = ":passwd_image",
     files = [":fence-provision-manager"],
+    #tars = ["//cmd/fence-provision-manager/ansible:ansible_tar"],
     directory = "/usr/bin",
     entrypoint = ["/usr/bin/fence-provision-manager"],
     user = "non-root",

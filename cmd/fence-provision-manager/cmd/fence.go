@@ -37,7 +37,7 @@ func NewFenceCommand() *cobra.Command {
 		Use:   "fence",
 		Short: "run fencing command on the host",
 		RunE:  fence,
-		Args:  cobra.ArbitraryArgs,
+		Args:  cobra.NoArgs,
 	}
 
 	fence.Flags().String("agent-type", "", "Fencing agent type")
@@ -46,7 +46,7 @@ func NewFenceCommand() *cobra.Command {
 	return fence
 }
 
-func fence(cmd *cobra.Command, args []string) (err error) {
+func fence(cmd *cobra.Command, _ []string) (err error) {
 	// Set power management agent type
 	fenceAgentType, err := cmd.Flags().GetString("agent-type")
 	if err != nil {
@@ -55,9 +55,6 @@ func fence(cmd *cobra.Command, args []string) (err error) {
 	fenceCommand := filepath.Join("/sbin", fmt.Sprintf("fence_%s", fenceAgentType))
 
 	fenceArgs := []string{}
-	if args != nil {
-		fenceArgs = append(fenceArgs, args...)
-	}
 
 	secretPath, err := cmd.Flags().GetString("secret-path")
 	if err != nil {
