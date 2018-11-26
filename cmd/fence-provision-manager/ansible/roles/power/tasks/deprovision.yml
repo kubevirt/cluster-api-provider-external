@@ -1,0 +1,6 @@
+##############################################################################
+## Power off an machine with IPMI
+##############################################################################
+
+- name: Power off machine
+  command: "/sbin/fence_{{ agent_type }} -P --ip {{ server }} --ipport {{ ipport }} --username {{ username }} --password {{ password }} -o off"

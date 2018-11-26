@@ -11,6 +11,7 @@ echo "Cleaning up ..."
 _kubectl -n cluster-api-provider-external get machines -o=custom-columns=NAME:.metadata.name,FINALIZERS:.metadata.finalizers --no-headers | grep "machine.cluster.k8s.io" | while read p; do
     arr=($p)
     name="${arr[0]}"
+    _kubectl -n cluster-api-provider-external delete machine $name
     _kubectl -n cluster-api-provider-external patch machine $name --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
 done
 
@@ -18,6 +19,7 @@ done
 _kubectl -n cluster-api-provider-external get clusters -o=custom-columns=NAME:.metadata.name,FINALIZERS:.metadata.finalizers --no-headers | grep "cluster.cluster.k8s.io" | while read p; do
     arr=($p)
     name="${arr[0]}"
+    _kubectl -n cluster-api-provider-external delete cluster $name
     _kubectl -n cluster-api-provider-external patch cluster $name --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
 done
 

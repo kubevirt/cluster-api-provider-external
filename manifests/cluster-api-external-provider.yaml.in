@@ -78,6 +78,9 @@ data:
             - field: server
               values:
                 example-machine: example-machine-14-drac
+            - field: ipport
+              values:
+                example-machine: 623
           secret: example-secret
 ---
 apiVersion: apps/v1beta1

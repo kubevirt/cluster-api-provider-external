@@ -29,32 +29,38 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const actionStatus = "status"
+const actionDiscover = "discover"
 
-func NewFenceCommand() *cobra.Command {
+func NewAnsibleCommand() *cobra.Command {
 
 	fence := &cobra.Command{
-		Use:   "fence",
-		Short: "run fencing command on the host",
-		RunE:  fence,
+		Use:   "ansible",
+		Short: "run ansible playbook",
+		RunE:  ansible,
 		Args:  cobra.ArbitraryArgs,
 	}
 
 	fence.Flags().String("agent-type", "", "Fencing agent type")
 	fence.Flags().String("secret-path", "", "Path to the secret that contains fencing agent username and password")
 	fence.Flags().StringP("action", "o", "", "Fencing action(status, reboot, off or on)")
+	fence.Flags().String("playbook-path", "", "Path to ansible playbook to run(relevant only with --use-ansible flag)")
 	return fence
 }
 
-func fence(cmd *cobra.Command, args []string) (err error) {
+func ansible(cmd *cobra.Command, args []string) (err error) {
 	// Set power management agent type
+	fenceCommand := "ansible-playbook"
+	playbook, err := cmd.Flags().GetString("playbook-path")
+	if err != nil {
+		return err
+	}
+
+	extraVars := []string{}
 	fenceAgentType, err := cmd.Flags().GetString("agent-type")
 	if err != nil {
 		return err
 	}
-	fenceCommand := filepath.Join("/sbin", fmt.Sprintf("fence_%s", fenceAgentType))
-
-	fenceArgs := []string{}
+	extraVars = append(extraVars, fmt.Sprintf("agent_type=%s", fenceAgentType))
 
 	secretPath, err := cmd.Flags().GetString("secret-path")
 	if err != nil {
@@ -65,21 +71,21 @@ func fence(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	fenceArgs = append(fenceArgs, fmt.Sprintf("--username=%s", strings.Trim(string(username), "\n")))
+	extraVars = append(extraVars, fmt.Sprintf("username=%s", strings.Trim(string(username), "\n")))
 
 	// Set power management password
 	password, err := ioutil.ReadFile(filepath.Join(secretPath, "password"))
 	if err != nil {
 		return err
 	}
-	fenceArgs = append(fenceArgs, fmt.Sprintf("--password=%s", strings.Trim(string(password), "\n")))
+	extraVars = append(extraVars, fmt.Sprintf("password=%s", strings.Trim(string(password), "\n")))
 
 	// Set power management action
 	action, err := cmd.Flags().GetString("action")
 	if err != nil {
 		return err
 	}
-	fenceArgs = append(fenceArgs, fmt.Sprintf("--action=%s", action))
+	extraVars = append(extraVars, fmt.Sprintf("action=%s", action))
 
 	// Set additional arguments
 	options, err := cmd.Flags().GetString("options")
@@ -90,16 +96,11 @@ func fence(cmd *cobra.Command, args []string) (err error) {
 			if len(keyVal) != 2 {
 				return fmt.Errorf("incorrect option format, please use \"key1=value1,...,keyn=valuen\"")
 			}
-			
-			arg := fmt.Sprintf("--%s=%s", keyVal[0], keyVal[1])
-			if keyVal[1] == "" {
-				arg = fmt.Sprintf("--%s", keyVal[0])
-			}
-			fenceArgs = append(fenceArgs, arg)
+			extraVars = append(extraVars, fmt.Sprintf("%s=%s", keyVal[0], keyVal[1]))
 		}
 	}
 
-	glog.Infof("running fence command %s with arguments %s", fenceCommand, fenceArgs)
+	glog.Infof("running ansible playbook %s with extra vars %s", playbook, extraVars)
 	// Do not run command if dry-run is true
 	dryRun, err := cmd.Flags().GetBool("dry-run")
 	if err != nil {
@@ -109,9 +110,13 @@ func fence(cmd *cobra.Command, args []string) (err error) {
 		return nil
 	}
 
+	fenceArgs := []string{
+		playbook,
+		fmt.Sprintf("--extra-vars=%s", strings.Join(extraVars, " ")),
+	}
 	// Execute fence command
 	_, stderr, rc := RunCommand(fenceCommand, fenceArgs...)
-	if (action == actionStatus && rc == 2) || rc == 0 {
+	if (action == actionDiscover && rc == 2) || rc == 0 {
 		return nil
 	}
 	return fmt.Errorf(stderr)

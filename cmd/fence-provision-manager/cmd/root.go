@@ -46,6 +46,7 @@ func NewRootCommand() *cobra.Command {
 
 	root.AddCommand(
 		NewFenceCommand(),
+		NewAnsibleCommand(),
 	)
 
 	return root
