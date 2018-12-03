@@ -3,4 +3,4 @@
 ##############################################################################
 
 - name: Determin machine power state
-  command: "/sbin/fence_{{ agent_type }} -P --ip {{ server }} --ipport {{ ipport }} --username {{ username }} --password {{ password }} -o status"
+  command: "/sbin/fence_{{ agent_type }} --username {{ username }} --password {{ password }} {{ options }} -o status"

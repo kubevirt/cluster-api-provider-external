@@ -90,14 +90,21 @@ func ansible(cmd *cobra.Command, args []string) (err error) {
 	// Set additional arguments
 	options, err := cmd.Flags().GetString("options")
 	if err == nil && options != "" {
-		optionList := strings.Split(options, ",")
-		for _, option := range optionList {
+		aOptions := []string{}
+		optionsList := strings.Split(options, ",")
+		for _, option := range optionsList {
 			keyVal := strings.Split(option, "=")
 			if len(keyVal) != 2 {
 				return fmt.Errorf("incorrect option format, please use \"key1=value1,...,keyn=valuen\"")
 			}
-			extraVars = append(extraVars, fmt.Sprintf("%s=%s", keyVal[0], keyVal[1]))
+
+			arg := fmt.Sprintf("--%s=%s", keyVal[0], keyVal[1])
+			if keyVal[1] == "" {
+				arg = fmt.Sprintf("--%s", keyVal[0])
+			}
+			aOptions = append(aOptions, arg)
 		}
+		extraVars = append(extraVars, fmt.Sprintf("%s=\"%s\"", "options", strings.Join(aOptions, " ")))
 	}
 
 	glog.Infof("running ansible playbook %s with extra vars %s", playbook, extraVars)
