@@ -1,3 +1,12 @@
+bazel-base-images-build:
+	./hack/dockerized "bazel build //images/base:build_images"
+
+bazel-base-images-push:
+	./hack/dockerized "bazel build //images/base:push_images"
+
+bazel-create-images-release:
+	hack/dockerized "bazel run //:cluster_api_provider_external_images"
+
 bazel-generate:
 	SYNC_VENDOR=true hack/dockerized "bazel run :gazelle"
 
@@ -54,7 +63,10 @@ fmt:
 vet:
 	go vet ./...
 
-.PHONY: bazel-generate \
+.PHONY: bazel-base-images-build \
+	bazel-base-images-push \
+	bazel-create-images-release \ 
+	bazel-generate \
 	bazel-generate-manifests-dev \
 	bazel-generate-manifests-release \
 	bazel-push-images-k8s-1.11.0 \

@@ -28,13 +28,13 @@ job_prefix=${JOB_NAME:-"cluster-api-provider-external"}${EXECUTOR_NUMBER}
 # RIGHT NOW ONLY RELEVANT FOR BUILDING, GENERATING CODE OUTSIDE OF GIT
 # IS NOT NEEDED NOR RECOMMENDED AT THIS STAGE.
 
-function noderecovery_version() {
-    if [ -n "${CLUSTER_API_EXTERNAL_PROVIDER}" ]; then
-        echo ${CLUSTER_API_EXTERNAL_PROVIDER_VERSION}
+function cluster_api_provider_external_version() {
+    if [ -n "${CLUSTER_API_PROVIDER_EXTERNAL}" ]; then
+        echo ${CLUSTER_API_PROVIDER_EXTERNAL_VERSION}
     elif [ -d ${REPO_DIR}/.git ]; then
         echo "$(git describe --always --tags)"
     else
         echo "undefined"
     fi
 }
-CLUSTER_API_EXTERNAL_PROVIDER_VERSION="$(noderecovery_version)"
+CLUSTER_API_PROVIDER_EXTERNAL_VERSION="$(cluster_api_provider_external_version)"
