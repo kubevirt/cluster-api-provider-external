@@ -46,8 +46,8 @@ config_setting(
 container_bundle(
     name = "cluster_api_provider_external_images",
     images = {
-        "index.docker.io/kubevirt/cluster-api-provider-external:latest": "//cmd/external-controller:cluster_api_provider_external_image",
-        "index.docker.io/kubevirt/fence-provision-manager:latest": "//cmd/fence-provision-manager:fence_provision_manager_image",
+        "index.docker.io/kubevirt/cluster-api-provider-external:$(container_tag)": "//cmd/external-controller:cluster_api_provider_external_image",
+        "index.docker.io/kubevirt/fence-provision-manager:$(container_tag)": "//cmd/fence-provision-manager:fence_provision_manager_image",
     },
 )
 
