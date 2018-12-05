@@ -17,12 +17,12 @@ script:
 - CONTAINER_TAG=$TRAVIS_TAG make bazel-generate-manifests-release
 deploy:
 - provider: script
-  script: hack/dockerizied "docker login -u=${DOCKER_USER} -p=${DOCKER_PASS}" && CONTAINER_TAG=latest make bazel-push-images-release
+  script: hack/dockerized "docker login -u=${DOCKER_USER} -p=${DOCKER_PASS}" && CONTAINER_TAG=latest make bazel-push-images-release
   skip_cleanup: true
   on:
     branch: master
 - provider: script
-  script: hack/dockerizied "docker login -u=${DOCKER_USER} -p=${DOCKER_PASS}" && CONTAINER_TAG=$TRAVIS_TAG make bazel-push-images-release
+  script: hack/dockerized "docker login -u=${DOCKER_USER} -p=${DOCKER_PASS}" && CONTAINER_TAG=$TRAVIS_TAG make bazel-push-images-release
   skip_cleanup: true
   file:
   on:
