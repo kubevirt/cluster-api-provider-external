@@ -61,7 +61,7 @@ data:
           name: had-drac
           container:
             name: fence-provision-manager
-            image: {{.DockerPrefix}}/fence-provision-manager:{{.DockerTag}}
+            image: {{.ContainerPrefix}}/fence-provision-manager:{{.ContainerTag}}
             command:
               - "fence-provision-manager"
             args:
@@ -118,7 +118,7 @@ spec:
                 operator: Exists
       containers:
       - name: cluster-api-external-controller
-        image: {{.DockerPrefix}}/cluster-api-provider-external:{{.DockerTag}}
+        image: {{.ContainerPrefix}}/cluster-api-provider-external:{{.ContainerTag}}
         command:
         - "/usr/bin/external-controller"
         args:	
