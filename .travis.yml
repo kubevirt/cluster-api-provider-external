@@ -5,8 +5,8 @@ services:
 - docker
 env:
   global:
-  - secure: Jhj6d0tcVmjHwAWgmTNnnGJ8K4/gXmoxcNghBCr08fa3afWrzmX5maAhCnR2dgv8rhzCkjfnPElAE891gXAJSEnQXLq/f+JWgxXen9gYO+5K9W68JOfPmW2qKCixHij8Bu6ghG8rbr76hbe2Sn/5WzIdRKkMr6F8x8Jjd7/qifTumntLUhZLIxP1Xkh7gplYQ4cNxwCzyONEAlq19jDOrsTeXDk+LziPzUfxlprY3FeBaSBs/MtaV4rz70+ZOOabP53VLxpBS9i++Sgk0aCv0qHc3itD/L3nyZRejVled0kAu68ttB9rmo9eRhGTMYbvQYyOD655i6cnr4Aaukb4WqtW0suYSCMDvRTyQk8ywoHqF1nfS1Adaj7IWD5eMYwNCQjul8a4KRBvJLqGoVa1THhty2hQkvsEWFj4tHOg4qTfyQT1gcfO9/vSqDdvpu2BdNQ48TBDDrI4mk5Du+mzPRY6jKPE06UxLzPNHcr2nkEL4m5D/nQT1nVNGV3rwb1bvBCRiigW1R+6tvtTqd7DTK1bPUfftbpP/+gA7kupUHUiOD0qSLM8m4G69VigKadS9KdAkg2zt9bhaADp4P4cOaDHfRO+ozEhAhh2/6gZO85PXldgxWErk9tKIWNO0tuGPeJaK+ZcKK1p7qPQMg96v8AerkmFnVJRl8RN4sU3zUI=
-  - secure: gV1oiUlw8jR2ajzC5Tj6dYUthydGGY3GBXvYDfh1LCEBkyzCx4IUUMkAsviA+yGfStS5DCBOIc4ncV1s0S2FAZakEjNV07QTIJfSW/txVU1N0eqq508RGs8Ep3kqW3p4xBxMMoKl6yqjqjEaUGQypTkxF/av9T/N/WfUNmcR6zJ112jeYztvbqYFzyJm0Q8ccn5UxWL/a+rJA3yTXTTEZHZwF8zDqj2kwUoUOWIlf7Z9JCsb+/kSGbfzcHH39HgwJSeoHdI9c6OuPuqpTCfQyEYBSLwCBn+BftZT0F9QhQdiMGmMMORjDoQEiGz0dbwt8UJWjKcE2joYLmEHlN/8XRktryxqyIKkdpkRjjQ4e4mpdLZGAKunEaqNBA74S59bDjs5cjPZcZrPnXg9as38ZQpUtbQo5rwrQKUqPcyoVyevou/i3PEBggxcHW1xHIFlX40qhC2jI9/RM6xWVQMDI+mSeY1qxGJFd5WoyE90GDEfSQ6jl5lff5hoAKA6VzyN8IAbvPc0XbLAdKmtwneSliktnoWHj/nSzDjsBI/uATkdyW2pviBJQHm+1+e8smiImnWsQsQXl3ej98B4M6deYme3JbC3dFi7yikVXCmbLvLBk0Pig/O4diCKdf2FoTUmNFOIKQT91sc4k7Ql9TblkA7Qud9zk5J7RzVpdC4WesA=
+  - secure: clkw/QvANjUKXvHSfvduHOg8NCl/1+3f5B0U+8xDc2eyWeQgQEySPX3Afz37TwKQK7JT3KDErZSX9y6BJrrSL3vfHmo3D9xSaCzrGyXEwkm/xUk+dgdkgpNXlz5H5re6GEnOYvAhSq+KOYjACSBWdcu3Xm12+OydwzcvDWLHopgQVWePkh7b3JP5dzbsOkx6QBYhWv55e1dMsvoaHWBeHjahaA0DZe/08iJDoSR0jIzHYmMgSHaKk3GJZO+00+cksge2kb+OAfxp+9MT5a/bfLYT0qQLtoliOj4IEpVkY1qXAaeYoKXgIQlZgGaP1tlxXO3ndqU371KxIXFOvzQSk4dBXPsuZahCSQThUAmLyHr0Egs1Tp0iEh2enZBtJcmThP/rQISRuAwTD/pNNLzGZIjjdvYzAAXR4GJ5T5ud9Tn2r8lXttSSlRkmgm6V4kmGI8AEWxxCPabQEM0XZZyT784a8A9p9zki4ndKBzlnAHyvg/UNhA8maphoU6N0v+cyXfT1T10t9FXDUKAqmJ20AqkRvbIXIhPOv1lgnOvm6s09u4FElvafyqURquHqrpDfdzo4r9zYu8ClIIxV5gWopTLdX1JoCW26jWx+AvPl6PDJSG8WlNtfdqIZ0JqozgZadhEkJtIMLaHa+fAeBqLIMylTUIn9yt2k3kwjGRC+SWk=
+  - secure: DRquIPkm5FzUzqKgdE7bJUVuBXvOFPRztSEFbSSEB6LseHvY79HngB9Ph4RoCWRiZtEJFNJH5d2TwP+AY+UgKZeEIg7VtAWaoQ/VfEFEHp8FEWD6gxZf2z6Kt/p8iL/vEAe5EJjNwnN2XLsDySUHgXGng6k1fe0n9F7FOzzd71foItOZP0vpGVvCglWrjlgtIhKbhQqUorI686Zs9pL3wK7oj2gS74BbzJwixswt+OuWRTsn/t+VUr8bFZ1Uykt8xAnM+KE0ULPc0/+LXoJMImQo5jbGzcNUo3YBVNt+SFyluHIT9RekFIASwNuLytxi8Niw8B8kQsQM4KYV/jURhUoMc0uz6DBewku8mEGtOxFc2dUqmst6UHJyckvYElPRDDOiSdcW95XlqfK4qggZ3ckx6yR+cP7LPfNss1IACZkeZXBaFQpTm5P17FGoMdBAzAPcxw2wMLWyH9Xf/Xpi2V2pjgdFgsh4OIr8FfsIdla9ckEndvh6ODfScoFcVhACq7A/8IyWcr1dYrmju6iO7eoXvAtoTn6SlDZhocmhOMgZlchRh8ovyQBFWJdsq5vurr+wRagMVhAPpwrG/QnpAEDycZNYGMbTX6tW91hv3lS6f1MH4zrvvk9o1dvTBubSdxxTKJA/ICQuyhP6+Tv1Uan5ccmq71eY/GAxlgwSUwc=
 install:
 - git reset --hard
 script:
@@ -17,14 +17,15 @@ script:
 - CONTAINER_TAG=$TRAVIS_TAG make bazel-generate-manifests-release
 deploy:
 - provider: script
-  script: hack/dockerized "docker login -u=${DOCKER_USER} -p=${DOCKER_PASS}" && CONTAINER_TAG=latest make bazel-push-images-release
+  script: hack/dockerized "docker login -u=${DOCKER_USER} -p=${DOCKER_PASSWORD}" &&
+    CONTAINER_TAG=latest make bazel-push-images-release
   skip_cleanup: true
   on:
     branch: master
 - provider: script
-  script: hack/dockerized "docker login -u=${DOCKER_USER} -p=${DOCKER_PASS}" && CONTAINER_TAG=$TRAVIS_TAG make bazel-push-images-release
+  script: hack/dockerized "docker login -u=${$DOCKER_USER} -p=${$DOCKER_PASSWORD}"
+    && CONTAINER_TAG=$TRAVIS_TAG make bazel-push-images-release
   skip_cleanup: true
-  file:
   on:
     tags: true
 - provider: releases
@@ -34,13 +35,7 @@ deploy:
   file: _out/manifests/cluster-api-provider-external.yaml
   prerelease: true
   overwrite: true
-  name: $TRAVIS_TAG
+  name: "$TRAVIS_TAG"
   on:
     repo: kubevirt/cluster-api-provider-external
     tags: true
-notifications:
-  irc:
-    channels:
-    - chat.freenode.net#kubevirt
-    on_success: change
-    on_failure: always
