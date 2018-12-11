@@ -14,9 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +k8s:deepcopy-gen=package,register
-// +k8s:conversion-gen=sigs.k8s.io/cluster-api/machinecontroller/cloud/google/gceproviderconfig
+// Package v1alpha1 contains API Schema definitions for the baremetalproviderconfig v1alpha1 API group
 // +k8s:openapi-gen=true
+// +k8s:deepcopy-gen=package
+// +k8s:conversion-gen=kubevirt.io/cluster-api-provider-external/pkg/apis/baremetalproviderconfig
 // +k8s:defaulter-gen=TypeMeta
-
+// +groupName=baremetalproviderconfig.k8s.io
 package v1alpha1

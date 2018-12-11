@@ -27,19 +27,15 @@ import (
 
 	"sigs.k8s.io/cluster-api/pkg/apis"
 	"sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset"
-	clustercontroller "sigs.k8s.io/cluster-api/pkg/controller/cluster"
 	machinecontroller "sigs.k8s.io/cluster-api/pkg/controller/machine"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
-	"kubevirt.io/cluster-api-provider-external/pkg/external"
+	machineacuator "kubevirt.io/cluster-api-provider-external/pkg/actuators/baremetal/machine"
 )
 
 func main() {
-	var machineSetupConfigPath = "/etc/machinesetup/machine_setup_configs.yaml"
-	flag.StringVar(&machineSetupConfigPath, "machinesetup", machineSetupConfigPath, "path to machine setup config file")
-
 	flag.Set("logtostderr", "true")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 
@@ -69,27 +65,16 @@ func main() {
 		panic(err)
 	}
 
-	// Setup cluster controller
-	clusterActuator, err := external.NewClusterActuator(clusterClient)
-	if err != nil {
-		panic(err)
-	}
-	clustercontroller.AddWithActuator(mgr, clusterActuator)
-
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		panic(err)
 	}
 	// Setup machine controller
-	machineActuator, err := external.NewMachineActuator(kubeClient, clusterClient, machineSetupConfigPath)
+	machineActuator, err := machineacuator.NewActuator(kubeClient, clusterClient)
 	if err != nil {
 		panic(err)
 	}
 	machinecontroller.AddWithActuator(mgr, machineActuator)
-
-	// Setup node controller
-	// TODO: enable when CR subresources available by default
-	// nodecontroller.Add(mgr)
 
 	glog.Info("Starting the manager")
 

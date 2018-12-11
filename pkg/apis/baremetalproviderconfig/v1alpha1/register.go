@@ -23,52 +23,33 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	
+
 	clusterv1 "sigs.k8s.io/cluster-api/pkg/apis/cluster/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/runtime/scheme"
 )
 
+var (
+	// SchemeGroupVersion is group version used to register these objects
+	SchemeGroupVersion = schema.GroupVersion{Group: "baremetalproviderconfig.k8s.io", Version: "v1alpha1"}
+
+	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
+	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
+)
+
+// BareMetalProviderConfigCodec contains encoder/decoder to convert this types from/to serialize data
 // +k8s:deepcopy-gen=false
-type ExternalProviderConfigCodec struct {
+type BareMetalProviderConfigCodec struct {
 	encoder runtime.Encoder
 	decoder runtime.Decoder
 }
 
-const GroupName = "externalproviderconfig"
-
-var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha1"}
-
-var (
-	SchemeBuilder      runtime.SchemeBuilder
-	localSchemeBuilder = &SchemeBuilder
-	AddToScheme        = localSchemeBuilder.AddToScheme
-)
-
-func init() {
-	localSchemeBuilder.Register(addKnownTypes)
-}
-
-func addKnownTypes(scheme *runtime.Scheme) error {
-	scheme.AddKnownTypes(SchemeGroupVersion,
-		&ExternalMachineProviderConfig{},
-	)
-	scheme.AddKnownTypes(SchemeGroupVersion,
-		&ExternalClusterProviderConfig{},
-	)
-	return nil
-}
-
+// NewScheme creates a new Scheme
 func NewScheme() (*runtime.Scheme, error) {
-	scheme := runtime.NewScheme()
-	if err := AddToScheme(scheme); err != nil {
-		return nil, err
-	}
-	// if err := providerconfig.AddToScheme(scheme); err != nil {
-	// 	return nil, err
-	// }
-	return scheme, nil
+	return SchemeBuilder.Build()
 }
 
-func NewCodec() (*ExternalProviderConfigCodec, error) {
+// NewCodec returns a encode/decoder for this API
+func NewCodec() (*BareMetalProviderConfigCodec, error) {
 	scheme, err := NewScheme()
 	if err != nil {
 		return nil, err
@@ -78,23 +59,15 @@ func NewCodec() (*ExternalProviderConfigCodec, error) {
 	if err != nil {
 		return nil, err
 	}
-	codec := ExternalProviderConfigCodec{
+	codec := BareMetalProviderConfigCodec{
 		encoder: encoder,
 		decoder: codecFactory.UniversalDecoder(SchemeGroupVersion),
 	}
 	return &codec, nil
 }
 
-func (codec *ExternalProviderConfigCodec) ClusterProviderFromProviderConfig(providerConfig clusterv1.ProviderConfig) (*ExternalClusterProviderConfig, error) {
-	var config ExternalClusterProviderConfig
-	err := codec.DecodeFromProviderConfig(providerConfig, &config)
-	if err != nil {
-		return nil, err
-	}
-	return &config, nil
-}
-
-func (codec *ExternalProviderConfigCodec) DecodeFromProviderConfig(providerConfig clusterv1.ProviderConfig, out runtime.Object) error {
+// DecodeFromProviderConfig decodes a serialised ProviderConfig into an object
+func (codec *BareMetalProviderConfigCodec) DecodeFromProviderConfig(providerConfig clusterv1.ProviderConfig, out runtime.Object) error {
 	_, _, err := codec.decoder.Decode(providerConfig.Value.Raw, nil, out)
 	if err != nil {
 		return fmt.Errorf("decoding failure: %v", err)
@@ -102,7 +75,8 @@ func (codec *ExternalProviderConfigCodec) DecodeFromProviderConfig(providerConfi
 	return nil
 }
 
-func (codec *ExternalProviderConfigCodec) EncodeToProviderConfig(in runtime.Object) (*clusterv1.ProviderConfig, error) {
+// EncodeToProviderConfig encodes an object into a serialised ProviderConfig
+func (codec *BareMetalProviderConfigCodec) EncodeToProviderConfig(in runtime.Object) (*clusterv1.ProviderConfig, error) {
 	var buf bytes.Buffer
 	if err := codec.encoder.Encode(in, &buf); err != nil {
 		return nil, fmt.Errorf("encoding failed: %v", err)
