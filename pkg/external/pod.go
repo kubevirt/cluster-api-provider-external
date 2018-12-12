@@ -63,6 +63,8 @@ func createFencingJob(action string, machine *clusterv1.Machine, fencingConfig *
 
 	timeout := int64(30) // TODO: Make this configurable
 	numContainers := int32(1)
+	_true := true
+	userUID := int64(1001)
 
 	// Parallel Jobs with a fixed completion count
 	// - https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/
@@ -85,6 +87,11 @@ func createFencingJob(action string, machine *clusterv1.Machine, fencingConfig *
 			// TTLSecondsAfterFinished: 100,
 			Template: v1.PodTemplateSpec{
 				Spec: v1.PodSpec{
+					ServiceAccountName: v1alpha1.ServiceAccountAnsibleJob,
+					SecurityContext: &v1.PodSecurityContext{
+						RunAsUser: &userUID,
+						RunAsNonRoot: &_true,
+					},
 					Containers:    containers,
 					RestartPolicy: v1.RestartPolicyOnFailure,
 					Volumes:       volumes,
