@@ -21,6 +21,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const ServiceAccountAnsibleJob = "ansible-job"
+
 // The MachineRole indicates the purpose of the Machine, and will determine
 // what software and configuration will be used when provisioning and managing
 // the Machine. A single Machine may have more than one role, and the list and
