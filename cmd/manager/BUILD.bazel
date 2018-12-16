@@ -50,6 +50,7 @@ container_image(
         ":machine-controller-manager",
         "//vendor/sigs.k8s.io/cluster-api/cmd/manager:manager",
         "//cmd/manager/ansible:ansible.cfg",
+        "//cmd/manager/ansible:inventory",
     ],
     directory = "/",
     user = "65534",

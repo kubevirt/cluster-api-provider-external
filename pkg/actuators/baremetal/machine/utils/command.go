@@ -30,7 +30,10 @@ import (
 
 const actionStatus = "status"
 
-const ansiblePlaybook = "/ansible/provision.yml"
+const (
+	ansiblePlaybook = "/ansible/provision.yml"
+	ansibleInventory = "/inventory"
+)
 
 const defaultFailedCode = 1
 
@@ -76,6 +79,8 @@ func RunProvisionCommand(fencingConfig *v1alpha1.FencingConfig, action string) (
 
 	args := []string{
 		ansiblePlaybook,
+		"-i",
+		ansibleInventory,
 		fmt.Sprintf("--extra-vars=%s", strings.Join(extraVars, " ")),
 	}
 
