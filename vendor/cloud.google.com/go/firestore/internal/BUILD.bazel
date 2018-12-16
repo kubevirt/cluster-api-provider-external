@@ -8,7 +8,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/cloud.google.com/go/firestore:go_default_library",
-        "//vendor/golang.org/x/net/context:go_default_library",
         "@org_golang_google_api//iterator:go_default_library",
     ],
 )

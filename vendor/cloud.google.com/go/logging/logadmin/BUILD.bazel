@@ -16,7 +16,6 @@ go_library(
         "//vendor/cloud.google.com/go/logging:go_default_library",
         "//vendor/cloud.google.com/go/logging/apiv2:go_default_library",
         "//vendor/cloud.google.com/go/logging/internal:go_default_library",
-        "//vendor/golang.org/x/net/context:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library_gen",
         "@com_github_googleapis_gax_go//:go_default_library",
         "@go_googleapis//google/api:monitoredres_go_proto",

@@ -8,7 +8,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/cloud.google.com/go/internal/testutil:go_default_library",
-        "//vendor/golang.org/x/net/context:go_default_library",
         "@com_github_golang_protobuf//ptypes:go_default_library_gen",
         "@go_googleapis//google/pubsub/v1:pubsub_go_proto",
         "@io_bazel_rules_go//proto/wkt:duration_go_proto",

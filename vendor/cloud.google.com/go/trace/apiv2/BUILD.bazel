@@ -11,8 +11,6 @@ go_library(
     importpath = "cloud.google.com/go/trace/apiv2",
     visibility = ["//visibility:public"],
     deps = [
-        "//vendor/cloud.google.com/go/internal/version:go_default_library",
-        "//vendor/golang.org/x/net/context:go_default_library",
         "@com_github_googleapis_gax_go//:go_default_library",
         "@go_googleapis//google/devtools/cloudtrace/v2:cloudtrace_go_proto",
         "@org_golang_google_api//option:go_default_library",

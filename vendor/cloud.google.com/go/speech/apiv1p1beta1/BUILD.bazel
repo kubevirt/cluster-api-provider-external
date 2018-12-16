@@ -10,10 +10,8 @@ go_library(
     importpath = "cloud.google.com/go/speech/apiv1p1beta1",
     visibility = ["//visibility:public"],
     deps = [
-        "//vendor/cloud.google.com/go/internal/version:go_default_library",
         "//vendor/cloud.google.com/go/longrunning:go_default_library",
         "//vendor/cloud.google.com/go/longrunning/autogen:go_default_library",
-        "//vendor/golang.org/x/net/context:go_default_library",
         "@com_github_googleapis_gax_go//:go_default_library",
         "@go_googleapis//google/cloud/speech/v1p1beta1:speech_go_proto",
         "@go_googleapis//google/longrunning:longrunning_go_proto",

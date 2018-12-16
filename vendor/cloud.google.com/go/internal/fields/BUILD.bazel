@@ -9,5 +9,4 @@ go_library(
     importmap = "kubevirt.io/cluster-api-provider-external/vendor/cloud.google.com/go/internal/fields",
     importpath = "cloud.google.com/go/internal/fields",
     visibility = ["//vendor/cloud.google.com/go:__subpackages__"],
-    deps = ["//vendor/cloud.google.com/go/internal/atomiccache:go_default_library"],
 )
