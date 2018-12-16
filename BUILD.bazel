@@ -44,10 +44,9 @@ config_setting(
 )
 
 container_bundle(
-    name = "cluster_api_provider_external_images",
+    name = "cluster_api_provider_baremetal_images",
     images = {
-        "index.docker.io/kubevirt/cluster-api-provider-external:$(container_tag)": "//cmd/external-controller:cluster_api_provider_external_image",
-        "index.docker.io/kubevirt/fence-provision-manager:$(container_tag)": "//cmd/fence-provision-manager:fence_provision_manager_image",
+        "index.docker.io/alukiano/origin-baremetal-machine-controllers:$(container_tag)": "//cmd/manager:baremetal_manager_image",
     },
 )
 
@@ -56,8 +55,8 @@ load("@io_bazel_rules_docker//contrib:push-all.bzl", "docker_push")
 docker_push(
     name = "push_images",
     bundle = select({
-        "//cluster/k8s-1.11.0:cluster_provider_k8s_1_11_0": "//cluster/k8s-1.11.0:cluster_api_provider_external_images",
-        "//cluster/os-3.10.0:cluster_provider_os_3_10_0": "//cluster/os-3.10.0:cluster_api_provider_external_images",
-        ":release": ":cluster_api_provider_external_images",
+        "//cluster/k8s-1.11.0:cluster_provider_k8s_1_11_0": "//cluster/k8s-1.11.0:cluster_api_provider_baremetal_images",
+        "//cluster/os-3.10.0:cluster_provider_os_3_10_0": "//cluster/os-3.10.0:cluster_api_provider_baremetal_images",
+        ":release": ":cluster_api_provider_baremetal_images",
     }),
 )

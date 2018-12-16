@@ -3,14 +3,18 @@ apiVersion: "cluster.k8s.io/v1alpha1"
 kind: Machine
 metadata:
   name: example-machine
-  namespace: cluster-api-provider-external
+  namespace: cluster-api-provider-baremetal
   labels:
-    kubevirt.io: "cluster-api-provider-external"
+    cluster-api-provider-baremetal.kubevirt.io: ""
 spec:
   providerConfig:
     value:
-      apiVersion: "externalproviderconfig/v1alpha1"
-      kind: "ExternalMachineProviderConfig"
-      label: drac-machine
-      roles:
-      - worker
+      apiVersion: "baremetalproviderconfig.k8s.io/v1alpha1"
+      kind: "BareMetalMachineProviderConfig"
+      fencingConfig:
+        agentType: "ipmilan"
+        agentAddress: "had-15-drac.ha.lab.eng.bos.redhat.com"
+        agentSecret:
+          data:
+            username: cm9vdAo=
+            password: Y2FsdmluCg==

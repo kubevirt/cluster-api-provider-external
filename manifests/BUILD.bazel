@@ -12,29 +12,30 @@ filegroup(
     name = "manifests",
     srcs = glob([
         "*.yaml.in",
+        "**/*.yaml.in",
     ]),
 )
 
 genrule(
     name = "concat_all_manifests",
     srcs = [":manifests"],
-    outs = ["cluster-api-provider-external-all.yaml.in"],
+    outs = ["cluster-api-provider-baremetal-all.yaml.in"],
     cmd = "cat $(locations :manifests) > $@",
 )
 
 genrule(
     name = "generate_manifests",
     srcs = [":concat_all_manifests"],
-    outs = ["cluster-api-provider-external.yaml"],
+    outs = ["cluster-api-provider-baremetal.yaml"],
     cmd = select({
         ":dev": "./$(location //tools/manifest-templator:manifest-templator) \
-            --namespace=cluster-api-provider-external \
+            --namespace=cluster-api-provider-baremetal \
             --container-prefix=registry:5000/kubevirt \
             --container-tag=devel \
             --image-pull-policy=Always \
             --input-file=$(locations :concat_all_manifests) > $@",
         ":release": "./$(location //tools/manifest-templator:manifest-templator) \
-            --namespace=cluster-api-provider-external \
+            --namespace=cluster-api-provider-baremetal \
             --container-prefix=docker.io/kubevirt \
             --container-tag=$(container_tag) \
             --image-pull-policy=IfNotPresent \

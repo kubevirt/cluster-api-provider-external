@@ -11,9 +11,11 @@ filegroup(
 pkg_tar(
     name = "ansible_tar",
     srcs = [":ansible_files"],
-    package_dir = "/home/non-root/ansible",
+    package_dir = "/ansible",
     strip_prefix = ".",
-    owner = "1001.1001",
+    owner = "65534.65534",
     mode = "0700",
     visibility = ["//visibility:public"],
 )
+
+exports_files(["ansible.cfg"])

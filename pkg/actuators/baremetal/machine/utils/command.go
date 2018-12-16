@@ -30,6 +30,8 @@ import (
 
 const actionStatus = "status"
 
+const ansiblePlaybook = "/ansible/provision.yml"
+
 const defaultFailedCode = 1
 
 // RunProvisionCommand runs
@@ -50,8 +52,8 @@ func RunProvisionCommand(fencingConfig *v1alpha1.FencingConfig, action string) (
 		fmt.Sprintf("provision_action=%s", action),
 		fmt.Sprintf("agent_address=%s", fencingConfig.AgentAddress),
 		fmt.Sprintf("agent_type=%s", fencingConfig.AgentType),
-		fmt.Sprintf("agent_username=%s", agentUsername),
-		fmt.Sprintf("agent_password=%s", agentPassword),
+		fmt.Sprintf("agent_username=%s", strings.Trim(string(agentUsername), "\n")),
+		fmt.Sprintf("agent_password=%s", strings.Trim(string(agentPassword), "\n")),
 	}
 
 	agentOptions := []string{}
@@ -63,15 +65,17 @@ func RunProvisionCommand(fencingConfig *v1alpha1.FencingConfig, action string) (
 		agentOptions = append(agentOptions, arg)
 	}
 
-	if len(agentOptions) != 0 {
-		extraVars = append(
-			extraVars,
-			fmt.Sprintf("%s=\"%s\"", "agent_options", strings.Join(agentOptions, " ")),
-		)
+	if len(agentOptions) == 0 {
+		agentOptions = append(agentOptions, "")
 	}
 
+	extraVars = append(
+		extraVars,
+		fmt.Sprintf("%s=\"%s\"", "agent_options", strings.Join(agentOptions, " ")),
+	)
+
 	args := []string{
-		"/home/non-root/ansible/provision.yml",
+		ansiblePlaybook,
 		fmt.Sprintf("--extra-vars=%s", strings.Join(extraVars, " ")),
 	}
 
@@ -85,7 +89,7 @@ func RunProvisionCommand(fencingConfig *v1alpha1.FencingConfig, action string) (
 	if rc == 2 && action == actionStatus {
 		return false, nil
 	}
-	
+
 	return false, fmt.Errorf(stderr)
 }
 

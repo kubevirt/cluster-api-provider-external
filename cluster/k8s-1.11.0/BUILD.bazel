@@ -5,10 +5,9 @@ load(
 )
 
 container_bundle(
-    name = "cluster_api_provider_external_images",
+    name = "cluster_api_provider_baremetal_images",
     images = {
-        "localhost:33000/kubevirt/cluster-api-provider-external:devel": "//cmd/external-controller:cluster_api_provider_external_image",
-        "localhost:33000/kubevirt/fence-provision-manager:devel": "//cmd/fence-provision-manager:fence_provision_manager_image",
+        "localhost:33000/kubevirt/origin-baremetal-machine-controllers:devel": "//cmd/manager:baremetal_manager_image",
     },
     visibility = ["//visibility:public"],
 )

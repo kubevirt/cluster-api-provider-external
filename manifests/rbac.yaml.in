@@ -2,26 +2,26 @@
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
 metadata:
-  name: cluster-api-provider-external
+  name: cluster-api-provider-baremetal
   labels:
-    kubevirt.io: "cluster-api-provider-external"
+    cluster-api-provider-baremetal.kubevirt.io: ""
 rules:
   - apiGroups:
       - cluster.k8s.io
     resources:
       - clusters
+      - clusters/status
       - machines
+      - machines/status
+      - machinesets
+      - machinesets/status
+      - machinedeployments
+      - machinedeployments/status
     verbs:
       - get
       - list
       - update
       - watch
-  - apiGroups:
-      - cluster.k8s.io
-    resources:
-      - machines/status
-    verbs:
-      - update
   - apiGroups:
       - ''
     resources:
@@ -53,25 +53,25 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
-  name: cluster-api-provider-external
+  name: cluster-api-provider-baremetal
   labels:
-    kubevirt.io: "cluster-api-provider-external"
+    cluster-api-provider-baremetal.kubevirt.io: ""
 roleRef:
   kind: ClusterRole
-  name: cluster-api-provider-external
+  name: cluster-api-provider-baremetal
   apiGroup: rbac.authorization.k8s.io
 subjects:
   - kind: ServiceAccount
-    name: cluster-api-provider-external
+    name: cluster-api-provider-baremetal
     namespace: {{.Namespace}}
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: cluster-api-provider-external
+  name: cluster-api-provider-baremetal
   namespace: {{.Namespace}}
   labels:
-    kubevirt.io: "cluster-api-provider-external"
+    cluster-api-provider-baremetal.kubevirt.io: ""
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -79,4 +79,4 @@ metadata:
   name: ansible-job
   namespace: {{.Namespace}}
   labels:
-    kubevirt.io: "cluster-api-provider-external"
+    cluster-api-provider-baremetal.kubevirt.io: ""

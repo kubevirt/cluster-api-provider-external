@@ -3,17 +3,18 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "go_default_library",
     srcs = ["main.go"],
-    importpath = "kubevirt.io/cluster-api-provider-external/cmd/external-controller",
+    importpath = "kubevirt.io/cluster-api-provider-external/cmd/manager",
     visibility = ["//visibility:private"],
     deps = [
         "//pkg/actuators/baremetal/machine:go_default_library",
+        "//pkg/apis:go_default_library",
+        "//pkg/controller:go_default_library",
         "//vendor/github.com/golang/glog:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes:go_default_library",
         "//vendor/k8s.io/client-go/plugin/pkg/client/auth/gcp:go_default_library",
         "//vendor/sigs.k8s.io/cluster-api/pkg/apis:go_default_library",
         "//vendor/sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset:go_default_library",
-        "//vendor/sigs.k8s.io/cluster-api/pkg/controller/machine:go_default_library",
         "//vendor/sigs.k8s.io/controller-runtime/pkg/client/config:go_default_library",
         "//vendor/sigs.k8s.io/controller-runtime/pkg/manager:go_default_library",
         "//vendor/sigs.k8s.io/controller-runtime/pkg/runtime/signals:go_default_library",
@@ -21,7 +22,7 @@ go_library(
 )
 
 go_binary(
-    name = "external-controller",
+    name = "machine-controller-manager",
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
 )
@@ -34,18 +35,23 @@ load(
 
 container_image(
     name = "passwd_image",
-    base = "@fedora//image",
-    tars = ["//:passwd_tar"],
-    user = "non-root",
+    base = "@fence-provision-base//image",
+    tars = [
+        "//:passwd_tar",
+        "//cmd/manager/ansible:ansible_tar",
+    ],
     visibility = ["//visibility:private"],
 )
 
 container_image(
-    name = "cluster_api_provider_external_image",
+    name = "baremetal_manager_image",
     base = ":passwd_image",
-    files = [":external-controller"],
-    directory = "/usr/bin",
-    entrypoint = ["/usr/bin/external-controller"],
-    user = "non-root",
+    files = [
+        ":machine-controller-manager",
+        "//vendor/sigs.k8s.io/cluster-api/cmd/manager:manager",
+        "//cmd/manager/ansible:ansible.cfg",
+    ],
+    directory = "/",
+    user = "65534",
     visibility = ["//visibility:public"],
 )

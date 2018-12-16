@@ -23,33 +23,6 @@ import (
 
 const ServiceAccountAnsibleJob = "ansible-job"
 
-// The MachineRole indicates the purpose of the Machine, and will determine
-// what software and configuration will be used when provisioning and managing
-// the Machine. A single Machine may have more than one role, and the list and
-// definitions of supported roles is expected to evolve over time.
-//
-// Currently, only two roles are supported: Master and Node. In the future, we
-// expect user needs to drive the evolution and granularity of these roles,
-// with new additions accommodating common cluster patterns, like dedicated
-// etcd Machines.
-//
-//                 +-----------------------+------------------------+
-//                 | Master present        | Master absent          |
-// +---------------+-----------------------+------------------------|
-// | Node present: | Install control plane | Join the cluster as    |
-// |               | and be schedulable    | just a node            |
-// |---------------+-----------------------+------------------------|
-// | Node absent:  | Install control plane | Invalid configuration  |
-// |               | and be unschedulable  |                        |
-// +---------------+-----------------------+------------------------+
-
-type MachineRole string
-
-const (
-	MasterRole MachineRole = "Master"
-	NodeRole   MachineRole = "Node"
-)
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // BareMetalMachineProviderConfig provides machine configuration struct
@@ -58,18 +31,80 @@ type BareMetalMachineProviderConfig struct {
 
 	// FencingConfig specify machine power management configuration
 	FencingConfig *FencingConfig `json:"fencingConfig"`
-	// Label give possibility to map between machine to specific configuration under configMap
-	Label string `json:"label,omitempty"`
-	// Roles specify which role will server machine under the cluster
-	Roles []MachineRole `json:"roles,omitempty"`
 }
 
 // FencingConfig container information relating to bare metal power management configuration
 type FencingConfig struct {
-	AgentType    string            `json:"agentType"`
-	AgentAddress string            `json:"agentAddress"`
+	// AgentType is the type of the fence device
+	AgentType string `json:"agentType"`
+
+	// AgentAddress is the address of the fence device
+	AgentAddress string `json:"agentAddress"`
+
+	// AgentOptions is additional options that you can send to the fence agent
 	AgentOptions map[string]string `json:"agentOptions,omitempty"`
-	AgentSecret  *corev1.Secret    `json:"agentSecret"`
+
+	// AgentSecret container username and password of the fence agent
+	AgentSecret *corev1.Secret `json:"agentSecret"`
+}
+
+// BareMetalClusterProviderConfig is the type that will be embedded in a Cluster.Spec.ProviderConfig field.
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type BareMetalClusterProviderConfig struct {
+	metav1.TypeMeta `json:",inline"`
+}
+
+// BareMetalMachineProviderStatus is the type that will be embedded in a Machine.Status.ProviderStatus field.
+// It contains bare-metal specific status information.
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type BareMetalMachineProviderStatus struct {
+	metav1.TypeMeta `json:",inline"`
+
+	// InstanceUUID is the instance UUID of the bare metal instance for this machine
+	InstanceUUID *string `json:"instanceUUID"`
+
+	// InstanceState is the state of the bare metal instance for this machine
+	InstanceState *string `json:"instanceState"`
+
+	// Conditions is a set of conditions associated with the Machine to indicate
+	// errors or other status
+	Conditions []BareMetalMachineProviderCondition `json:"conditions"`
+}
+
+// BareMetalMachineProviderConditionType is a valid value for BareMetalMachineProviderCondition.Type
+type BareMetalMachineProviderConditionType string
+
+// Valid conditions for an Bare Metal machine instance
+const (
+	// MachineCreated indicates whether the machine has been created or not. If not,
+	// it should include a reason and message for the failure.
+	MachineCreated BareMetalMachineProviderConditionType = "MachineCreated"
+)
+
+// BareMetalMachineProviderCondition is a condition in a BareMetalMachineProviderStatus
+type BareMetalMachineProviderCondition struct {
+	// Type is the type of the condition.
+	Type BareMetalMachineProviderConditionType `json:"type"`
+	// Status is the status of the condition.
+	Status corev1.ConditionStatus `json:"status"`
+	// LastProbeTime is the last time we probed the condition.
+	// +optional
+	LastProbeTime metav1.Time `json:"lastProbeTime"`
+	// LastTransitionTime is the last time the condition transitioned from one status to another.
+	// +optional
+	LastTransitionTime metav1.Time `json:"lastTransitionTime"`
+	// Reason is a unique, one-word, CamelCase reason for the condition's last transition.
+	// +optional
+	Reason string `json:"reason"`
+	// Message is a human-readable message indicating details about last transition.
+	// +optional
+	Message string `json:"message"`
+}
+
+// BareMetalClusterProviderStatus is the type that will be embedded in a Cluster.Status.ProviderStatus field.
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type BareMetalClusterProviderStatus struct {
+	metav1.TypeMeta `json:",inline"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -82,5 +117,5 @@ type BareMetalMachineProviderConfigList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&BareMetalMachineProviderConfig{}, &BareMetalMachineProviderConfigList{})
+	SchemeBuilder.Register(&BareMetalMachineProviderConfig{}, &BareMetalMachineProviderConfigList{}, &BareMetalMachineProviderStatus{})
 }

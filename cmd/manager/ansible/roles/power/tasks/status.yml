@@ -3,4 +3,4 @@
 ##############################################################################
 
 - name: Determin machine power state
-  command: "/sbin/fence_{{ agent_type }} --username {{ agent_username }} --password {{ agent_password }} --ip {{ agent_address }} {{ options }} -o status"
+  command: "/sbin/fence_{{ agent_type }} --username {{ agent_username }} --password {{ agent_password }} --ip {{ agent_address }} {{ agent_options }} -o status"

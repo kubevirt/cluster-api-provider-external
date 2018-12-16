@@ -25,14 +25,15 @@ import (
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
-	"sigs.k8s.io/cluster-api/pkg/apis"
+	clusterapis "sigs.k8s.io/cluster-api/pkg/apis"
 	"sigs.k8s.io/cluster-api/pkg/client/clientset_generated/clientset"
-	machinecontroller "sigs.k8s.io/cluster-api/pkg/controller/machine"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
-	machineacuator "kubevirt.io/cluster-api-provider-external/pkg/actuators/baremetal/machine"
+	machineactuator "kubevirt.io/cluster-api-provider-external/pkg/actuators/baremetal/machine"
+	"kubevirt.io/cluster-api-provider-external/pkg/apis"
+	"kubevirt.io/cluster-api-provider-external/pkg/controller"
 )
 
 func main() {
@@ -60,6 +61,10 @@ func main() {
 		glog.Fatal(err)
 	}
 
+	if err := clusterapis.AddToScheme(mgr.GetScheme()); err != nil {
+		glog.Fatal(err)
+	}
+
 	clusterClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
 		panic(err)
@@ -70,11 +75,13 @@ func main() {
 		panic(err)
 	}
 	// Setup machine controller
-	machineActuator, err := machineacuator.NewActuator(kubeClient, clusterClient)
+	machineactuator.MachineActuator, err = machineactuator.NewActuator(kubeClient, clusterClient)
 	if err != nil {
 		panic(err)
 	}
-	machinecontroller.AddWithActuator(mgr, machineActuator)
+	if err := controller.AddToManager(mgr); err != nil {
+		panic(err)
+	}
 
 	glog.Info("Starting the manager")
 
