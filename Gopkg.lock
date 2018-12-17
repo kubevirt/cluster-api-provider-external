@@ -253,7 +253,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:0c60c25323a50cdd330a193334388e8f1f51e50d8e2aeed95aa89316c77248d7"
+  digest = "1:31162299b46522ce13b7836d17341c88817e87874c15d9c755e22140feb2718b"
   name = "golang.org/x/net"
   packages = [
     "context",
@@ -264,7 +264,7 @@
     "idna",
   ]
   pruneopts = "T"
-  revision = "891ebc4b82d6e74f468c533b06f983c7be918a96"
+  revision = "e147a9138326bc0e9d4e179541ffd8af41cff8a9"
 
 [[projects]]
   branch = "master"
@@ -400,6 +400,7 @@
   digest = "1:e2035d60919705a125feeb8b13926383aff8817634b2c4550743c19ca21f3b08"
   name = "k8s.io/apimachinery"
   packages = [
+    "pkg/api/equality",
     "pkg/api/errors",
     "pkg/api/meta",
     "pkg/api/resource",
@@ -523,6 +524,14 @@
   version = "kubernetes-1.11.2"
 
 [[projects]]
+  digest = "1:7a3ef99d492d30157b8e933624a8f0292b4cee5934c23269f7640c8030eb83cd"
+  name = "k8s.io/klog"
+  packages = ["."]
+  pruneopts = "T"
+  revision = "a5bc97fbc634d635061f3146511332c7e313a55a"
+  version = "v0.1.0"
+
+[[projects]]
   branch = "master"
   digest = "1:90f16a49f856e6d94089444e487c535f4cd41f59a1e90c51deb9dcf965f3c50b"
   name = "k8s.io/kube-openapi"
@@ -531,7 +540,7 @@
   revision = "0317810137be915b9cf888946c6e115c1bfac693"
 
 [[projects]]
-  digest = "1:25e4c5e17fbb1e8071e08902a68e7704af43c9186adb8993049e26c6543168e2"
+  digest = "1:ef04c20bf6f1dcd5e1cd1fd27a65675649dfed58e89699fe2891cccc0a233efd"
   name = "sigs.k8s.io/cluster-api"
   packages = [
     "pkg/apis",
@@ -546,7 +555,8 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "70dec6624df750599dbf25b206020dca640fc761"
+  revision = "3547f8dd93078c0b0f0b221ee1c2a57f96673081"
+  version = "0.0.0-alpha.4"
 
 [[projects]]
   digest = "1:ca3f51201a90f3a23bf35938ee910d2fb3095ece453cf56c8b723e935c194ebd"
@@ -582,6 +592,14 @@
   revision = "5fd1e9e9fac5261e9ad9d47c375afc014fc31d21"
   version = "v0.1.7"
 
+[[projects]]
+  digest = "1:7719608fe0b52a4ece56c2dde37bedd95b938677d1ab0f84b8a7852e4c59f849"
+  name = "sigs.k8s.io/yaml"
+  packages = ["."]
+  pruneopts = "T"
+  revision = "fd68e9863619f6ec2fdd8625fe1f02e7c877e480"
+  version = "v1.1.0"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
@@ -589,6 +607,7 @@
     "github.com/golang/glog",
     "github.com/spf13/pflag",
     "k8s.io/api/core/v1",
+    "k8s.io/apimachinery/pkg/api/equality",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",

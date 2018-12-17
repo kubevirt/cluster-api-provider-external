@@ -12,10 +12,10 @@ spec:
       labels:
         foo: bar
     spec:
-      providerConfig:
+      providerSpec:
         value:
           apiVersion: "gceproviderconfig/v1alpha1"
-          kind: "GCEMachineProviderConfig"
+          kind: "GCEMachineProviderSpec"
           roles:
           - Node
           zone: "us-central1-f"

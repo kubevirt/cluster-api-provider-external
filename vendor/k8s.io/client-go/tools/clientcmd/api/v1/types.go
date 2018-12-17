@@ -112,7 +112,7 @@ type AuthInfo struct {
 	Password string `json:"password,omitempty"`
 	// AuthProvider specifies a custom authentication plugin for the kubernetes cluster.
 	// +optional
-	AuthProvider *AuthProviderConfig `json:"auth-provider,omitempty"`
+	AuthProvider *AuthProviderSpec `json:"auth-provider,omitempty"`
 	// Exec specifies a custom exec-based authentication plugin for the kubernetes cluster.
 	// +optional
 	Exec *ExecConfig `json:"exec,omitempty"`
@@ -167,8 +167,8 @@ type NamedExtension struct {
 	Extension runtime.RawExtension `json:"extension"`
 }
 
-// AuthProviderConfig holds the configuration for a specified auth provider.
-type AuthProviderConfig struct {
+// AuthProviderSpec holds the configuration for a specified auth provider.
+type AuthProviderSpec struct {
 	Name   string            `json:"name"`
 	Config map[string]string `json:"config"`
 }

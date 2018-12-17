@@ -136,7 +136,7 @@ func (t *tokenRoundTripper) WrappedRoundTripper() http.RoundTripper { return t.R
 
 // newOpenstackAuthProvider creates an auth provider which works with openstack
 // environment.
-func newOpenstackAuthProvider(_ string, config map[string]string, persister restclient.AuthProviderConfigPersister) (restclient.AuthProvider, error) {
+func newOpenstackAuthProvider(_ string, config map[string]string, persister restclient.AuthProviderSpecPersister) (restclient.AuthProvider, error) {
 	var ttlDuration time.Duration
 	var err error
 

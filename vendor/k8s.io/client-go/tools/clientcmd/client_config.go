@@ -66,7 +66,7 @@ type ClientConfig interface {
 	ConfigAccess() ConfigAccess
 }
 
-type PersistAuthProviderConfigForUser func(user string) restclient.AuthProviderConfigPersister
+type PersistAuthProviderSpecForUser func(user string) restclient.AuthProviderSpecPersister
 
 type promptedCredentials struct {
 	username string
@@ -179,7 +179,7 @@ func (config *DirectClientConfig) ClientConfig() (*restclient.Config, error) {
 		// mergo is a first write wins for map value and a last writing wins for interface values
 		// NOTE: This behavior changed with https://github.com/imdario/mergo/commit/d304790b2ed594794496464fadd89d2bb266600a.
 		//       Our mergo.Merge version is older than this change.
-		var persister restclient.AuthProviderConfigPersister
+		var persister restclient.AuthProviderSpecPersister
 		if config.configAccess != nil {
 			authInfoName, _ := config.getAuthInfoName()
 			persister = PersisterForUser(config.configAccess, authInfoName)
@@ -226,7 +226,7 @@ func getServerIdentificationPartialConfig(configAuthInfo clientcmdapi.AuthInfo, 
 // 2.  configAuthInfo.auth-path (this file can contain information that conflicts with #1, and we want #1 to win the priority)
 // 3.  if there is not enough information to identify the user, load try the ~/.kubernetes_auth file
 // 4.  if there is not enough information to identify the user, prompt if possible
-func (config *DirectClientConfig) getUserIdentificationPartialConfig(configAuthInfo clientcmdapi.AuthInfo, fallbackReader io.Reader, persistAuthConfig restclient.AuthProviderConfigPersister) (*restclient.Config, error) {
+func (config *DirectClientConfig) getUserIdentificationPartialConfig(configAuthInfo clientcmdapi.AuthInfo, fallbackReader io.Reader, persistAuthConfig restclient.AuthProviderSpecPersister) (*restclient.Config, error) {
 	mergedConfig := &restclient.Config{}
 
 	// blindly overwrite existing values based on precedence

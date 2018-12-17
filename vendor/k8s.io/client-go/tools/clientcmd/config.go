@@ -327,7 +327,7 @@ func ModifyConfig(configAccess ConfigAccess, newConfig clientcmdapi.Config, rela
 	return nil
 }
 
-func PersisterForUser(configAccess ConfigAccess, user string) restclient.AuthProviderConfigPersister {
+func PersisterForUser(configAccess ConfigAccess, user string) restclient.AuthProviderSpecPersister {
 	return &persister{configAccess, user}
 }
 

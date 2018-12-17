@@ -12,10 +12,10 @@ spec:
       labels:
         foo: bar
     spec:
-      providerConfig:
+      providerSpec:
         value:
           apiVersion: "gceproviderconfig/v1alpha1"
-          kind: "GCEProviderConfig"
+          kind: "GCEProviderSpec"
           roles:
           - Node
           project: "${GCLOUD_PROJECT}"

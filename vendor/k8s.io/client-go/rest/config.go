@@ -72,10 +72,10 @@ type Config struct {
 	Impersonate ImpersonationConfig
 
 	// Server requires plugin-specified authentication.
-	AuthProvider *clientcmdapi.AuthProviderConfig
+	AuthProvider *clientcmdapi.AuthProviderSpec
 
 	// Callback to persist config for AuthProvider.
-	AuthConfigPersister AuthProviderConfigPersister
+	AuthConfigPersister AuthProviderSpecPersister
 
 	// Exec-based authentication provider.
 	ExecProvider *clientcmdapi.ExecConfig

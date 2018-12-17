@@ -39,11 +39,11 @@ type AuthProvider interface {
 //  clusterAddress is the address of the current cluster.
 //  config is the initial configuration for this plugin.
 //  persister allows the plugin to save updated configuration.
-type Factory func(clusterAddress string, config map[string]string, persister AuthProviderConfigPersister) (AuthProvider, error)
+type Factory func(clusterAddress string, config map[string]string, persister AuthProviderSpecPersister) (AuthProvider, error)
 
-// AuthProviderConfigPersister allows a plugin to persist configuration info
+// AuthProviderSpecPersister allows a plugin to persist configuration info
 // for just itself.
-type AuthProviderConfigPersister interface {
+type AuthProviderSpecPersister interface {
 	Persist(map[string]string) error
 }
 
@@ -62,7 +62,7 @@ func RegisterAuthProviderPlugin(name string, plugin Factory) error {
 	return nil
 }
 
-func GetAuthProvider(clusterAddress string, apc *clientcmdapi.AuthProviderConfig, persister AuthProviderConfigPersister) (AuthProvider, error) {
+func GetAuthProvider(clusterAddress string, apc *clientcmdapi.AuthProviderSpec, persister AuthProviderSpecPersister) (AuthProvider, error) {
 	pluginsLock.Lock()
 	defer pluginsLock.Unlock()
 	p, ok := plugins[apc.Name]

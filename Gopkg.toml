@@ -41,4 +41,4 @@
 
 [[constraint]]
   name = "sigs.k8s.io/cluster-api"
-  revision = "70dec6624df750599dbf25b206020dca640fc761"
+  version = "0.0.0-alpha.4"

@@ -18,36 +18,48 @@ package minikube
 
 import (
 	"fmt"
-	"github.com/golang/glog"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
+
+	"k8s.io/klog"
 )
 
 type Minikube struct {
 	kubeconfigpath string
-	vmDriver       string
+	options        []string
 	// minikubeExec implemented as function variable for testing hooks
 	minikubeExec func(env []string, args ...string) (string, error)
 }
 
-func New(vmDriver string) *Minikube {
-	return &Minikube{
-		minikubeExec: minikubeExec,
-		vmDriver:     vmDriver,
+func New() *Minikube {
+	return WithOptions([]string{})
+}
+
+func WithOptions(options []string) *Minikube {
+	return WithOptionsAndKubeConfigPath(options, "")
+}
+
+func WithOptionsAndKubeConfigPath(options []string, kubeconfigpath string) *Minikube {
+	if kubeconfigpath == "" {
 		// Arbitrary file name. Can potentially be randomly generated.
-		kubeconfigpath: "minikube.kubeconfig",
+		kubeconfigpath = "minikube.kubeconfig"
+	}
+	return &Minikube{
+		minikubeExec:   minikubeExec,
+		options:        options,
+		kubeconfigpath: kubeconfigpath,
 	}
 }
 
 var minikubeExec = func(env []string, args ...string) (string, error) {
 	const executable = "minikube"
-	glog.V(3).Infof("Running: %v %v", executable, args)
+	klog.V(3).Infof("Running: %v %v", executable, args)
 	cmd := exec.Command(executable, args...)
 	cmd.Env = env
 	cmdOut, err := cmd.CombinedOutput()
-	glog.V(2).Infof("Ran: %v %v Output: %v", executable, args, string(cmdOut))
+	klog.V(2).Infof("Ran: %v %v Output: %v", executable, args, string(cmdOut))
 	if err != nil {
 		err = fmt.Errorf("error running command '%v %v': %v", executable, strings.Join(args, " "), err)
 	}
@@ -56,8 +68,8 @@ var minikubeExec = func(env []string, args ...string) (string, error) {
 
 func (m *Minikube) Create() error {
 	args := []string{"start", "--bootstrapper=kubeadm"}
-	if m.vmDriver != "" {
-		args = append(args, fmt.Sprintf("--vm-driver=%v", m.vmDriver))
+	for _, opt := range m.options {
+		args = append(args, fmt.Sprintf("--%v", opt))
 	}
 	_, err := m.exec(args...)
 	return err

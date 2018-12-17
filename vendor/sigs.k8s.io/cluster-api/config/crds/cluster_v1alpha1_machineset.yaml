@@ -12,6 +12,10 @@ spec:
     plural: machinesets
   scope: Namespaced
   subresources:
+    scale:
+      labelSelectorPath: .status.labelSelector
+      specReplicasPath: .spec.replicas
+      statusReplicasPath: .status.replicas
     status: {}
   validation:
     openAPIV3Schema:
@@ -42,11 +46,17 @@ spec:
                       type: object
                     metadata:
                       type: object
-                    providerConfig:
+                    providerSpec:
                       properties:
                         value:
                           type: object
                         valueFrom:
+                          properties:
+                            machineClass:
+                              properties:
+                                provider:
+                                  type: string
+                              type: object
                           type: object
                       type: object
                     taints:
@@ -63,7 +73,7 @@ spec:
                       - kubelet
                       type: object
                   required:
-                  - providerConfig
+                  - providerSpec
                   type: object
               type: object
           required:

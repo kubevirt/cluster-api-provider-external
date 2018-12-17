@@ -76,7 +76,7 @@ func (c *azureTokenCache) setToken(tokenKey string, token *azureToken) {
 	c.cache[tokenKey] = token
 }
 
-func newAzureAuthProvider(_ string, cfg map[string]string, persister restclient.AuthProviderConfigPersister) (restclient.AuthProvider, error) {
+func newAzureAuthProvider(_ string, cfg map[string]string, persister restclient.AuthProviderSpecPersister) (restclient.AuthProvider, error) {
 	var ts tokenSource
 
 	environment, err := azure.EnvironmentFromName(cfg[cfgEnvironment])
@@ -158,10 +158,10 @@ type azureTokenSource struct {
 	cache     *azureTokenCache
 	lock      sync.Mutex
 	cfg       map[string]string
-	persister restclient.AuthProviderConfigPersister
+	persister restclient.AuthProviderSpecPersister
 }
 
-func newAzureTokenSource(source tokenSource, cache *azureTokenCache, cfg map[string]string, persister restclient.AuthProviderConfigPersister) tokenSource {
+func newAzureTokenSource(source tokenSource, cache *azureTokenCache, cfg map[string]string, persister restclient.AuthProviderSpecPersister) tokenSource {
 	return &azureTokenSource{
 		source:    source,
 		cache:     cache,

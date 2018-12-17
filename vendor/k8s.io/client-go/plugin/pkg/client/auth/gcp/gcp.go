@@ -110,10 +110,10 @@ var (
 //
 type gcpAuthProvider struct {
 	tokenSource oauth2.TokenSource
-	persister   restclient.AuthProviderConfigPersister
+	persister   restclient.AuthProviderSpecPersister
 }
 
-func newGCPAuthProvider(_ string, gcpConfig map[string]string, persister restclient.AuthProviderConfigPersister) (restclient.AuthProvider, error) {
+func newGCPAuthProvider(_ string, gcpConfig map[string]string, persister restclient.AuthProviderSpecPersister) (restclient.AuthProvider, error) {
 	ts, err := tokenSource(isCmdTokenSource(gcpConfig), gcpConfig)
 	if err != nil {
 		return nil, err
@@ -184,11 +184,11 @@ type cachedTokenSource struct {
 	source      oauth2.TokenSource
 	accessToken string
 	expiry      time.Time
-	persister   restclient.AuthProviderConfigPersister
+	persister   restclient.AuthProviderSpecPersister
 	cache       map[string]string
 }
 
-func newCachedTokenSource(accessToken, expiry string, persister restclient.AuthProviderConfigPersister, ts oauth2.TokenSource, cache map[string]string) (*cachedTokenSource, error) {
+func newCachedTokenSource(accessToken, expiry string, persister restclient.AuthProviderSpecPersister, ts oauth2.TokenSource, cache map[string]string) (*cachedTokenSource, error) {
 	var expiryTime time.Time
 	if parsedTime, err := time.Parse(time.RFC3339Nano, expiry); err == nil {
 		expiryTime = parsedTime
@@ -336,7 +336,7 @@ func parseJSONPath(input interface{}, name, template string) (string, error) {
 
 type conditionalTransport struct {
 	oauthTransport *oauth2.Transport
-	persister      restclient.AuthProviderConfigPersister
+	persister      restclient.AuthProviderSpecPersister
 }
 
 var _ net.RoundTripperWrapper = &conditionalTransport{}

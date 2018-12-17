@@ -51,11 +51,17 @@ spec:
               - pods
               - serviceDomain
               type: object
-            providerConfig:
+            providerSpec:
               properties:
                 value:
                   type: object
                 valueFrom:
+                  properties:
+                    machineClass:
+                      properties:
+                        provider:
+                          type: string
+                      type: object
                   type: object
               type: object
           required:

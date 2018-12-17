@@ -107,7 +107,7 @@ func (c *clientCache) setClient(issuer, clientID string, client *oidcAuthProvide
 	return client
 }
 
-func newOIDCAuthProvider(_ string, cfg map[string]string, persister restclient.AuthProviderConfigPersister) (restclient.AuthProvider, error) {
+func newOIDCAuthProvider(_ string, cfg map[string]string, persister restclient.AuthProviderSpecPersister) (restclient.AuthProvider, error) {
 	issuer := cfg[cfgIssuerUrl]
 	if issuer == "" {
 		return nil, fmt.Errorf("Must provide %s", cfgIssuerUrl)
@@ -171,7 +171,7 @@ type oidcAuthProvider struct {
 	// the RoundTripper only trigger a single refresh request.
 	mu        sync.Mutex
 	cfg       map[string]string
-	persister restclient.AuthProviderConfigPersister
+	persister restclient.AuthProviderSpecPersister
 }
 
 func (p *oidcAuthProvider) WrapTransport(rt http.RoundTripper) http.RoundTripper {
@@ -292,7 +292,7 @@ func (p *oidcAuthProvider) idToken() (string, error) {
 func tokenEndpoint(client *http.Client, issuer string) (string, error) {
 	// Well known URL for getting OpenID Connect metadata.
 	//
-	// https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfig
+	// https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderSpec
 	wellKnown := strings.TrimSuffix(issuer, "/") + "/.well-known/openid-configuration"
 	resp, err := client.Get(wellKnown)
 	if err != nil {
