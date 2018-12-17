@@ -84,7 +84,7 @@ func RunProvisionCommand(fencingConfig *v1alpha1.FencingConfig, action string) (
 		fmt.Sprintf("--extra-vars=%s", strings.Join(extraVars, " ")),
 	}
 
-	glog.Infof("run provisioning command %s with args: %v", cmd, args)
+	glog.V(2).Infof("run provisioning command %s with args: %v", cmd, args)
 	_, stderr, rc := runCommand(cmd, args...)
 
 	if rc == 0 {
@@ -125,6 +125,6 @@ func runCommand(command string, args ...string) (stdout string, stderr string, e
 		ws := cmd.ProcessState.Sys().(syscall.WaitStatus)
 		exitCode = ws.ExitStatus()
 	}
-	glog.Infof("command result, stdout: %v, stderr: %v, exitCode: %v", stdout, stderr, exitCode)
+	glog.V(2).Infof("command result, stdout: %v, stderr: %v, exitCode: %v", stdout, stderr, exitCode)
 	return
 }

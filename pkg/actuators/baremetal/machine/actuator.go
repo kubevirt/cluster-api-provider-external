@@ -17,11 +17,13 @@ limitations under the License.
 package machine
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/golang/glog"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -38,9 +40,10 @@ import (
 )
 
 const (
-	actionStatus = "status"
-	actionCreate = "create"
-	actionDelete = "delete"
+	actionStatus       = "status"
+	actionCreate       = "create"
+	actionDelete       = "delete"
+	actionUpdateStatus = "updateStatus"
 )
 
 var MachineActuator *Actuator
@@ -54,7 +57,9 @@ type Actuator struct {
 }
 
 type codec interface {
-	DecodeFromProviderConfig(clusterv1.ProviderConfig, runtime.Object) error
+	DecodeFromProviderSpec(clusterv1.ProviderSpec, runtime.Object) error
+	DecodeProviderStatus(*runtime.RawExtension, runtime.Object) error
+	EncodeProviderStatus(runtime.Object) (*runtime.RawExtension, error)
 }
 
 // NewActuator creates a new Actuator
@@ -78,9 +83,9 @@ func NewActuator(kubeclient kubernetes.Interface, clusterclient clusterclient.In
 }
 
 // Create runs create action on the machine
-func (a *Actuator) Create(cluster *clusterv1.Cluster, machine *clusterv1.Machine) error {
+func (a *Actuator) Create(ctx context.Context, cluster *clusterv1.Cluster, machine *clusterv1.Machine) error {
 	glog.Infof("run create action on the machine %s", machine.Name)
-	if _, err := a.executeAction(actionCreate, cluster, machine); err != nil {
+	if _, err := a.executeAction(actionCreate, machine); err != nil {
 		glog.Errorf("failed to run create action %s: %v", machine.Name, err)
 		return a.handleMachineError(
 			machine,
@@ -88,15 +93,18 @@ func (a *Actuator) Create(cluster *clusterv1.Cluster, machine *clusterv1.Machine
 			actionCreate,
 		)
 	}
-
 	a.eventRecorder.Eventf(machine, corev1.EventTypeNormal, "Created", "Created the Machine %s", machine.Name)
+
+	if err := a.updateStatus(machine); err != nil {
+		return fmt.Errorf("%s/%s: error updating machine status: %v", cluster.Name, machine.Name, err)
+	}
 	return nil
 }
 
 // Delete runs delete action on the machine
-func (a *Actuator) Delete(cluster *clusterv1.Cluster, machine *clusterv1.Machine) error {
+func (a *Actuator) Delete(ctx context.Context, cluster *clusterv1.Cluster, machine *clusterv1.Machine) error {
 	glog.Infof("run delete action on the machine %s", machine.Name)
-	if _, err := a.executeAction(actionDelete, cluster, machine); err != nil {
+	if _, err := a.executeAction(actionDelete, machine); err != nil {
 		glog.Errorf("failed to run delete action %s: %v", machine.Name, err)
 		return a.handleMachineError(
 			machine,
@@ -110,15 +118,20 @@ func (a *Actuator) Delete(cluster *clusterv1.Cluster, machine *clusterv1.Machine
 }
 
 // Update does not run any code
-func (a *Actuator) Update(cluster *clusterv1.Cluster, goalMachine *clusterv1.Machine) error {
-	glog.Infof("NOT IMPLEMENTED: update machine %s", goalMachine.Name)
+func (a *Actuator) Update(ctx context.Context, cluster *clusterv1.Cluster, machine *clusterv1.Machine) error {
+	glog.Infof("Updating machine %v for cluster %v.", machine.Name, cluster.Name)
+
+	if err := a.updateStatus(machine); err != nil {
+		return fmt.Errorf("%s/%s: error updating machine status: %v", cluster.Name, machine.Name, err)
+	}
+
 	return nil
 }
 
 // Exists returns true, if machine is power-on
-func (a *Actuator) Exists(cluster *clusterv1.Cluster, machine *clusterv1.Machine) (bool, error) {
+func (a *Actuator) Exists(ctx context.Context, cluster *clusterv1.Cluster, machine *clusterv1.Machine) (bool, error) {
 	glog.Infof("Checking if machine %s is existing", machine.Name)
-	state, err := a.executeAction(actionStatus, cluster, machine)
+	state, err := a.executeAction(actionStatus, machine)
 	if err != nil {
 		return false, err
 	}
@@ -127,32 +140,51 @@ func (a *Actuator) Exists(cluster *clusterv1.Cluster, machine *clusterv1.Machine
 	return state, nil
 }
 
-// ProviderConfigMachine gets the machine provider config MachineSetSpec from the
+// ProviderSpecMachine gets the machine provider config MachineSetSpec from the
 // specified cluster-api MachineSpea.
-func ProviderConfigMachine(codec codec, ms *clusterv1.MachineSpec) (*v1alpha1.BareMetalMachineProviderConfig, error) {
-	if ms.ProviderConfig.Value == nil {
-		return nil, fmt.Errorf("no Value in ProviderConfig")
+func ProviderSpecMachine(codec codec, ms *clusterv1.MachineSpec) (*v1alpha1.BareMetalMachineProviderSpec, error) {
+	if ms.ProviderSpec.Value == nil {
+		return nil, fmt.Errorf("no Value in ProviderSpec")
 	}
 
-	var config v1alpha1.BareMetalMachineProviderConfig
-	if err := codec.DecodeFromProviderConfig(ms.ProviderConfig, &config); err != nil {
+	var config v1alpha1.BareMetalMachineProviderSpec
+	if err := codec.DecodeFromProviderSpec(ms.ProviderSpec, &config); err != nil {
 		return nil, err
 	}
 
 	return &config, nil
 }
 
-func (a *Actuator) executeAction(action string, cluster *clusterv1.Cluster, machine *clusterv1.Machine) (bool, error) {
-	machineProviderConfig, err := ProviderConfigMachine(a.codec, &machine.Spec)
+// EncodeProviderStatus encodes a libvirt provider
+// status as a runtime.RawExtension for inclusion in a MachineStatus
+// object.
+func EncodeProviderStatus(codec codec, status *v1alpha1.BareMetalMachineProviderStatus) (*runtime.RawExtension, error) {
+	return codec.EncodeProviderStatus(status)
+}
+
+// ProviderStatusFromMachine deserializes a libvirt provider status
+// from a machine object.
+func ProviderStatusFromMachine(codec codec, machine *clusterv1.Machine) (*v1alpha1.BareMetalMachineProviderStatus, error) {
+	status := &v1alpha1.BareMetalMachineProviderStatus{}
+	var err error
+	if machine.Status.ProviderStatus != nil {
+		err = codec.DecodeProviderStatus(machine.Status.ProviderStatus, status)
+	}
+
+	return status, err
+}
+
+func (a *Actuator) executeAction(action string, machine *clusterv1.Machine) (bool, error) {
+	machineProviderSpec, err := ProviderSpecMachine(a.codec, &machine.Spec)
 	if err != nil {
 		return false, err
 	}
-	return utils.RunProvisionCommand(machineProviderConfig.FencingConfig, action)
+	return utils.RunProvisionCommand(machineProviderSpec.FencingConfig, action)
 }
 
-func (a *Actuator) machineproviderconfig(providerConfig clusterv1.ProviderConfig) (*v1alpha1.BareMetalMachineProviderConfig, error) {
-	var config v1alpha1.BareMetalMachineProviderConfig
-	err := a.codec.DecodeFromProviderConfig(providerConfig, &config)
+func (a *Actuator) machineproviderconfig(providerSpec clusterv1.ProviderSpec) (*v1alpha1.BareMetalMachineProviderSpec, error) {
+	var config v1alpha1.BareMetalMachineProviderSpec
+	err := a.codec.DecodeFromProviderSpec(providerSpec, &config)
 	if err != nil {
 		return nil, err
 	}
@@ -169,5 +201,65 @@ func (a *Actuator) handleMachineError(machine *clusterv1.Machine, err *errors.Ma
 	a.eventRecorder.Eventf(machine, corev1.EventTypeWarning, "Failed"+action, "%v", err.Reason)
 
 	glog.Errorf("Machine error: %v", err.Message)
+	return err
+}
+
+// updateStatus updates a machine object's status.
+func (a *Actuator) updateStatus(machine *clusterv1.Machine) error {
+	machineProviderSpec, err := ProviderSpecMachine(a.codec, &machine.Spec)
+	if err != nil {
+		return err
+	}
+	node, err := a.kubeclient.CoreV1().Nodes().Get(machineProviderSpec.NodeName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	glog.Infof("Updating status for %s", machine.Name)
+	status, err := ProviderStatusFromMachine(a.codec, machine)
+	if err != nil {
+		glog.Error("Unable to get provider status from machine: %v", err)
+		return err
+	}
+
+	uuid := node.Status.NodeInfo.SystemUUID
+	state, err := a.executeAction(actionStatus, machine)
+	if err != nil {
+		return err
+	}
+	stateString := "ON"
+	if !state {
+		stateString = "OFF"
+	}
+
+	status.InstanceUUID = &uuid
+	status.InstanceState = &stateString
+
+	if err := a.applyMachineStatus(machine, status); err != nil {
+		glog.Errorf("Unable to apply machine status: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func (a *Actuator) applyMachineStatus(machine *clusterv1.Machine, status *v1alpha1.BareMetalMachineProviderStatus) error {
+	// Encode the new status as a raw extension.
+	rawStatus, err := EncodeProviderStatus(a.codec, status)
+	if err != nil {
+		return err
+	}
+
+	machineCopy := machine.DeepCopy()
+	machineCopy.Status.ProviderStatus = rawStatus
+
+	if equality.Semantic.DeepEqual(machine.Status, machineCopy.Status) {
+		glog.V(4).Infof("Machine %s status is unchanged", machine.Name)
+		return nil
+	}
+
+	now := metav1.Now()
+	machineCopy.Status.LastUpdated = &now
+	_, err = a.clusterclient.ClusterV1alpha1().Machines(machineCopy.Namespace).UpdateStatus(machineCopy)
 	return err
 }

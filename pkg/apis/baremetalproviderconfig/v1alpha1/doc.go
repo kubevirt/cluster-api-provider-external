@@ -19,5 +19,5 @@ limitations under the License.
 // +k8s:deepcopy-gen=package
 // +k8s:conversion-gen=kubevirt.io/cluster-api-provider-external/pkg/apis/baremetalproviderconfig
 // +k8s:defaulter-gen=TypeMeta
-// +groupName=baremetalproviderconfig.k8s.io
+// +groupName=baremetalproviderconfig.kubevirt.io
 package v1alpha1

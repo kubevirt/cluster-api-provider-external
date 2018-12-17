@@ -7,10 +7,11 @@ metadata:
   labels:
     cluster-api-provider-baremetal.kubevirt.io: ""
 spec:
-  providerConfig:
+  providerSpec:
     value:
-      apiVersion: "baremetalproviderconfig.k8s.io/v1alpha1"
-      kind: "BareMetalMachineProviderConfig"
+      apiVersion: "baremetalproviderconfig.kubevirt.io/v1alpha1"
+      kind: "BareMetalMachineProviderSpec"
+      nodeName: node02
       fencingConfig:
         agentType: "ipmilan"
         agentAddress: "had-15-drac.ha.lab.eng.bos.redhat.com"

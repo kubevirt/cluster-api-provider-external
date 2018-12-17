@@ -30,15 +30,15 @@ import (
 
 var (
 	// SchemeGroupVersion is group version used to register these objects
-	SchemeGroupVersion = schema.GroupVersion{Group: "baremetalproviderconfig.k8s.io", Version: "v1alpha1"}
+	SchemeGroupVersion = schema.GroupVersion{Group: "baremetalproviderconfig.kubevirt.io", Version: "v1alpha1"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
 )
 
-// BareMetalProviderConfigCodec contains encoder/decoder to convert this types from/to serialize data
+// BareMetalProviderSpecCodec contains encoder/decoder to convert this types from/to serialize data
 // +k8s:deepcopy-gen=false
-type BareMetalProviderConfigCodec struct {
+type BareMetalProviderSpecCodec struct {
 	encoder runtime.Encoder
 	decoder runtime.Decoder
 }
@@ -49,7 +49,7 @@ func NewScheme() (*runtime.Scheme, error) {
 }
 
 // NewCodec returns a encode/decoder for this API
-func NewCodec() (*BareMetalProviderConfigCodec, error) {
+func NewCodec() (*BareMetalProviderSpecCodec, error) {
 	scheme, err := NewScheme()
 	if err != nil {
 		return nil, err
@@ -59,31 +59,52 @@ func NewCodec() (*BareMetalProviderConfigCodec, error) {
 	if err != nil {
 		return nil, err
 	}
-	codec := BareMetalProviderConfigCodec{
+	codec := BareMetalProviderSpecCodec{
 		encoder: encoder,
 		decoder: codecFactory.UniversalDecoder(SchemeGroupVersion),
 	}
 	return &codec, nil
 }
 
-// DecodeFromProviderConfig decodes a serialised ProviderConfig into an object
-func (codec *BareMetalProviderConfigCodec) DecodeFromProviderConfig(providerConfig clusterv1.ProviderConfig, out runtime.Object) error {
-	_, _, err := codec.decoder.Decode(providerConfig.Value.Raw, nil, out)
+// DecodeFromProviderSpec decodes a serialised ProviderSpec into an object
+func (codec *BareMetalProviderSpecCodec) DecodeFromProviderSpec(providerSpec clusterv1.ProviderSpec, out runtime.Object) error {
+	_, _, err := codec.decoder.Decode(providerSpec.Value.Raw, nil, out)
 	if err != nil {
 		return fmt.Errorf("decoding failure: %v", err)
 	}
 	return nil
 }
 
-// EncodeToProviderConfig encodes an object into a serialised ProviderConfig
-func (codec *BareMetalProviderConfigCodec) EncodeToProviderConfig(in runtime.Object) (*clusterv1.ProviderConfig, error) {
+// EncodeToProviderSpec encodes an object into a serialised ProviderSpec
+func (codec *BareMetalProviderSpecCodec) EncodeToProviderSpec(in runtime.Object) (*clusterv1.ProviderSpec, error) {
 	var buf bytes.Buffer
 	if err := codec.encoder.Encode(in, &buf); err != nil {
 		return nil, fmt.Errorf("encoding failed: %v", err)
 	}
-	return &clusterv1.ProviderConfig{
+	return &clusterv1.ProviderSpec{
 		Value: &runtime.RawExtension{Raw: buf.Bytes()},
 	}, nil
+}
+
+// EncodeProviderStatus encodes an object into serialised data
+func (codec *BareMetalProviderSpecCodec) EncodeProviderStatus(in runtime.Object) (*runtime.RawExtension, error) {
+	var buf bytes.Buffer
+	if err := codec.encoder.Encode(in, &buf); err != nil {
+		return nil, fmt.Errorf("encoding failed: %v", err)
+	}
+
+	return &runtime.RawExtension{Raw: buf.Bytes()}, nil
+}
+
+// DecodeProviderStatus decodes a serialised providerStatus into an object
+func (codec *BareMetalProviderSpecCodec) DecodeProviderStatus(providerStatus *runtime.RawExtension, out runtime.Object) error {
+	if providerStatus != nil {
+		_, _, err := codec.decoder.Decode(providerStatus.Raw, nil, out)
+		if err != nil {
+			return fmt.Errorf("decoding failure: %v", err)
+		}
+	}
+	return nil
 }
 
 func newEncoder(codecFactory *serializer.CodecFactory) (runtime.Encoder, error) {

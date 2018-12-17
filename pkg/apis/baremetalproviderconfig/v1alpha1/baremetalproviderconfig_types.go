@@ -25,11 +25,14 @@ const ServiceAccountAnsibleJob = "ansible-job"
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// BareMetalMachineProviderConfig provides machine configuration struct
-type BareMetalMachineProviderConfig struct {
+// BareMetalMachineProviderSpec provides machine configuration struct
+type BareMetalMachineProviderSpec struct {
 	metav1.TypeMeta `json:",inline"`
 
-	// FencingConfig specify machine power management configuration
+	// NodeName maps between machine object to the existsing node
+	NodeName string `json:"nodeName"`
+
+	// FencingConfig specifies machine power management configuration
 	FencingConfig *FencingConfig `json:"fencingConfig"`
 }
 
@@ -48,9 +51,9 @@ type FencingConfig struct {
 	AgentSecret *corev1.Secret `json:"agentSecret"`
 }
 
-// BareMetalClusterProviderConfig is the type that will be embedded in a Cluster.Spec.ProviderConfig field.
+// BareMetalClusterProviderSpec is the type that will be embedded in a Cluster.Spec.ProviderSpec field.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type BareMetalClusterProviderConfig struct {
+type BareMetalClusterProviderSpec struct {
 	metav1.TypeMeta `json:",inline"`
 }
 
@@ -63,7 +66,7 @@ type BareMetalMachineProviderStatus struct {
 	// InstanceUUID is the instance UUID of the bare metal instance for this machine
 	InstanceUUID *string `json:"instanceUUID"`
 
-	// InstanceState is the state of the bare metal instance for this machine
+	// InstanceState is the fencing state of the bare metal instance for this machine
 	InstanceState *string `json:"instanceState"`
 
 	// Conditions is a set of conditions associated with the Machine to indicate
@@ -73,13 +76,6 @@ type BareMetalMachineProviderStatus struct {
 
 // BareMetalMachineProviderConditionType is a valid value for BareMetalMachineProviderCondition.Type
 type BareMetalMachineProviderConditionType string
-
-// Valid conditions for an Bare Metal machine instance
-const (
-	// MachineCreated indicates whether the machine has been created or not. If not,
-	// it should include a reason and message for the failure.
-	MachineCreated BareMetalMachineProviderConditionType = "MachineCreated"
-)
 
 // BareMetalMachineProviderCondition is a condition in a BareMetalMachineProviderStatus
 type BareMetalMachineProviderCondition struct {
@@ -109,13 +105,13 @@ type BareMetalClusterProviderStatus struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// BareMetalMachineProviderConfigList contains a list of BareMetalMachineProviderConfig
-type BareMetalMachineProviderConfigList struct {
+// BareMetalMachineProviderSpecList contains a list of BareMetalMachineProviderSpec
+type BareMetalMachineProviderSpecList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []BareMetalMachineProviderConfig `json:"items"`
+	Items           []BareMetalMachineProviderSpec `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&BareMetalMachineProviderConfig{}, &BareMetalMachineProviderConfigList{}, &BareMetalMachineProviderStatus{})
+	SchemeBuilder.Register(&BareMetalMachineProviderSpec{}, &BareMetalMachineProviderSpecList{}, &BareMetalMachineProviderStatus{})
 }
