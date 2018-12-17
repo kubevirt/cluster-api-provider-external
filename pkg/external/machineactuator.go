@@ -185,6 +185,7 @@ func (c *ExternalClient) waitForJob(jobName string, namespace string, retries in
 	}
 	glog.Infof("Waiting %d times for job %v", retries, job.Name)
 
+	deletePropagationPolicy := metav1.DeletePropagationBackground
 	for lpc := 0; lpc < retries || retries < 0; lpc++ {
 		if len(job.Status.Conditions) > 0 {
 			for _, condition := range job.Status.Conditions {
@@ -194,7 +195,7 @@ func (c *ExternalClient) waitForJob(jobName string, namespace string, retries in
 				} else if condition.Type == batchv1.JobComplete {
 					if job.Status.Succeeded > 0 {
 						if job.DeletionTimestamp == nil {
-							err := c.kubeclient.BatchV1().Jobs(namespace).Delete(job.Name, &metav1.DeleteOptions{})
+							err := c.kubeclient.BatchV1().Jobs(namespace).Delete(job.Name, &metav1.DeleteOptions{PropagationPolicy: &deletePropagationPolicy})
 							if err != nil {
 								glog.Errorf("failed to delete succeeded job %s: %v", job.Name, err)
 							}
