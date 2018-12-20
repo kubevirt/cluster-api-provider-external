@@ -56,7 +56,7 @@ docker_push(
     name = "push_images",
     bundle = select({
         "//cluster/k8s-1.11.0:cluster_provider_k8s_1_11_0": "//cluster/k8s-1.11.0:cluster_api_provider_baremetal_images",
-        "//cluster/os-3.10.0:cluster_provider_os_3_10_0": "//cluster/os-3.10.0:cluster_api_provider_baremetal_images",
+        "//cluster/os-3.11.0:cluster_provider_os_3_11_0": "//cluster/os-3.11.0:cluster_api_provider_baremetal_images",
         ":release": ":cluster_api_provider_baremetal_images",
     }),
 )

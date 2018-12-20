@@ -2,7 +2,7 @@
 
 set -e
 
-image="os-3.10.0@sha256:faa467495207af8faa9214b1bf8adabf6161fab7f4da11b63efa41610a3ff0ab"
+image="os-3.11.0@sha256:2d0a8f59dfebe181f550c4fbcd90d491a56a7d642d761c32a3c7732644325c0b"
 
 source cluster/provider-common.sh
 
