@@ -120,6 +120,10 @@ type FencingConfig struct {
 	// Volumes represent additional volumes that you want to attach
 	// to the container
 	Volumes []v1.Volume `json:"volumes,omitempty"`
+
+	// Defines whether successful Jobs should be removed automatically
+	// Might be usefull to turn off for debugging purposes
+	NoSuccessfulJobsCleanup bool `json:"noSuccessfulJobsCleanup,omitempty"`
 }
 
 type DynamicConfigElement struct {

@@ -165,7 +165,7 @@ func (c *ExternalClient) executeAction(command string, cluster *clusterv1.Cluste
 	}
 
 	if doWait {
-		nodeFenceState, err := c.waitForJob(fencingJob.Name, fencingJob.Namespace, -1)
+		nodeFenceState, err := c.waitForJob(fencingJob.Name, fencingJob.Namespace, -1, !fencingConfig.NoSuccessfulJobsCleanup)
 		if err != nil {
 			glog.Errorf("Job %v error: %v", fencingJob.Name, err)
 			return false, err
@@ -177,7 +177,7 @@ func (c *ExternalClient) executeAction(command string, cluster *clusterv1.Cluste
 	return true, nil
 }
 
-func (c *ExternalClient) waitForJob(jobName string, namespace string, retries int) (bool, error) {
+func (c *ExternalClient) waitForJob(jobName string, namespace string, retries int, removeSuccessful bool) (bool, error) {
 	// TODO: Use informers to fetch resources
 	job, err := c.kubeclient.BatchV1().Jobs(namespace).Get(jobName, metav1.GetOptions{})
 	if err != nil {
@@ -185,6 +185,7 @@ func (c *ExternalClient) waitForJob(jobName string, namespace string, retries in
 	}
 	glog.Infof("Waiting %d times for job %v", retries, job.Name)
 
+	deletePropagationPolicy := metav1.DeletePropagationBackground
 	for lpc := 0; lpc < retries || retries < 0; lpc++ {
 		if len(job.Status.Conditions) > 0 {
 			for _, condition := range job.Status.Conditions {
@@ -193,8 +194,8 @@ func (c *ExternalClient) waitForJob(jobName string, namespace string, retries in
 
 				} else if condition.Type == batchv1.JobComplete {
 					if job.Status.Succeeded > 0 {
-						if job.DeletionTimestamp == nil {
-							err := c.kubeclient.BatchV1().Jobs(namespace).Delete(job.Name, &metav1.DeleteOptions{})
+						if job.DeletionTimestamp == nil && removeSuccessful {
+							err := c.kubeclient.BatchV1().Jobs(namespace).Delete(job.Name, &metav1.DeleteOptions{PropagationPolicy: &deletePropagationPolicy})
 							if err != nil {
 								glog.Errorf("failed to delete succeeded job %s: %v", job.Name, err)
 							}
