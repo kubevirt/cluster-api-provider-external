@@ -1,3 +1,5 @@
+**⚠️ This repository is deprecated and no longer maintained.**
+
 # cluster-api-provider-external
 An implementation of the Cluster Management API that delegates CRUD primitives to an admin-defined container.
 
